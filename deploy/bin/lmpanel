@@ -9,7 +9,7 @@ if [[ ! -x "$panel_script" ]]; then
 fi
 
 case "${1:-}" in
-  edit|save|auto)
+  edit|save|auto|set-auto)
     case "$1" in
       edit)
         nohup "$panel_script" --edit >/dev/null 2>&1 &
@@ -17,6 +17,7 @@ case "${1:-}" in
         ;;
       save) exec "$panel_script" --save-layout ;;
       auto) exec "$panel_script" --auto-layout ;;
+      set-auto) exec "$panel_script" --set-auto-layout ;;
     esac
     ;;
   help|-h|--help|"")
@@ -24,6 +25,7 @@ case "${1:-}" in
 Usage:
   lmpanel edit   # enter manual edit mode and drag the panels
   lmpanel save   # save the current panel positions
+  lmpanel set-auto  # save current positions as the automatic baseline
   lmpanel auto   # return to automatic monitor-based layout
   lmpanel        # show this help
 EOF

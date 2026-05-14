@@ -20,4 +20,5 @@ Quick control:
 - `systemctl --user status lmpanel.service`
 - `lmpanel edit`
 - `lmpanel save`
+- `lmpanel set-auto`
 - `lmpanel auto`

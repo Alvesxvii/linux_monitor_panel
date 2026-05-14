@@ -10,9 +10,11 @@ CONKY_LAYOUT_DIR="$BASE/conky-runtime"
 EDIT_LAYOUT_DIR="$BASE/conky-edit-runtime"
 MANUAL_LAYOUT_DIR="$BASE/conky-manual-layout"
 MANUAL_GEOM_FILE="$BASE/manual-layout.tsv"
+AUTO_GEOM_FILE="$BASE/auto-layout.tsv"
 MONITOR_SIG_FILE="$BASE/monitor-signature"
 TEMPLATE_SIG_FILE="$BASE/template-signature"
 MANUAL_LAYOUT_SIG_FILE="$BASE/manual-layout-signature"
+AUTO_LAYOUT_SIG_FILE="$BASE/auto-layout-signature"
 LAYOUT_MODE_FILE="$BASE/layout-mode"
 EDIT_PID_FILE="$BASE/edit-mode.pid"
 CONKY_RENDERED_CONFIGS=()
@@ -83,6 +85,21 @@ manual_layout_signature() {
   sha256sum "$MANUAL_GEOM_FILE" 2>/dev/null | awk '{print $1}'
 }
 
+layout_signature() {
+  local geom_file="$1"
+  local tmpl_sig="$2"
+
+  if [[ ! -f "$geom_file" ]]; then
+    printf 'no-layout\n'
+    return 0
+  fi
+
+  {
+    sha256sum "$geom_file" 2>/dev/null
+    printf '%s\n' "$tmpl_sig"
+  } | sha256sum | awk '{print $1}'
+}
+
 monitor_specs() {
   if command -v xrandr >/dev/null 2>&1 && [[ -n "${DISPLAY:-}" ]]; then
     xrandr --query 2>/dev/null | awk '
@@ -126,8 +143,110 @@ render_conky_config() {
   perl -0pi -e "s/^gap_x\\s+\\d+/gap_x $gap_x/m; s/^gap_y\\s+\\d+/gap_y $gap_y/m; s/^xinerama_head\\s+\\d+/xinerama_head $head/m; s/^alignment\\s+\\S+/alignment $alignment/m; s/^own_window_type\\s+\\S+/own_window_type $window_type/m; s/^own_window_hints\\s+.+\$/own_window_hints $window_hints/m if length(q{$window_hints}); s/^own_window_colour\\s+black/own_window_colour black\\nown_window_title $title/m; s/^own_window_title\\s+.+$/own_window_title $title/m" "$dst"
 }
 
+render_saved_layout() {
+  local geom_file="$1"
+  local sig_file="$2"
+  local label="$3"
+  local window_type="$4"
+  local window_hints="$5"
+  local tmpl_sig="$6"
+  local layout_sig rel x y head source
+
+  layout_sig="$(layout_signature "$geom_file" "$tmpl_sig")"
+  if [[ -f "$sig_file" && "$(cat "$sig_file" 2>/dev/null)" == "$layout_sig" && "${#CONKY_RENDERED_CONFIGS[@]}" -gt 0 ]]; then
+    return 0
+  fi
+
+  mkdir -p "$CONKY_LAYOUT_DIR"
+  rm -rf "$CONKY_LAYOUT_DIR"/*
+  CONKY_RENDERED_CONFIGS=()
+
+  if [[ ! -f "$geom_file" ]]; then
+    log "$label layout mode requested but no layout file exists."
+    return 0
+  fi
+
+  while IFS=$'\t' read -r rel x y head source; do
+    [[ -n "${rel:-}" ]] || continue
+    mkdir -p "$CONKY_LAYOUT_DIR/$(dirname "$rel")"
+    render_conky_config "$source" "$CONKY_LAYOUT_DIR/$rel" "$x" "$y" "$head" top_left "$window_type" "$window_hints"
+    CONKY_RENDERED_CONFIGS+=("$CONKY_LAYOUT_DIR/$rel")
+  done <"$geom_file"
+
+  printf '%s\n' "$layout_sig" >"$sig_file"
+  log "rendered $label conky layout."
+}
+
+capture_current_layouts() {
+  local output_file="$1"
+  local sig_file="$2"
+  local label="$3"
+  local source rel geom x y head
+  declare -A geom_by_title=()
+  declare -A monitor_origin_x=()
+  declare -A monitor_origin_y=()
+
+  local idx name width height origin_x origin_y
+  mapfile -t specs < <(monitor_specs)
+  for idx in "${!specs[@]}"; do
+    read -r name width height origin_x origin_y <<<"${specs[$idx]}"
+    monitor_origin_x["$idx"]="$origin_x"
+    monitor_origin_y["$idx"]="$origin_y"
+  done
+
+  while IFS=$'\t' read -r title x y; do
+    geom_by_title["$title"]="$x $y"
+  done < <(
+    python3 - <<'PY'
+import re, subprocess
+tree = subprocess.check_output(["xwininfo", "-root", "-tree"], text=True, stderr=subprocess.DEVNULL)
+pattern = re.compile(
+    r'"(?P<title>lmpanel-[^"]+)".*?'
+    r'(?P<w>\d+)x(?P<h>\d+)\+(?P<relx>-?\d+)\+(?P<rely>-?\d+)\s+\+'
+    r'(?P<x>-?\d+)\+(?P<y>-?\d+)$',
+    re.M,
+)
+for m in pattern.finditer(tree):
+    print(f"{m.group('title')}\t{m.group('x')}\t{m.group('y')}")
+PY
+  )
+
+  : >"$output_file"
+
+  local entries=(
+    "head0/.conkyrc0:$BASE/.conkyrc0:0"
+    "head0/.conkyrc1:$BASE/.conkyrc1:0"
+    "head0/.conkyrc2:$BASE/.conkyrc2:0"
+    "head0/.conkyrc3:$BASE/.conkyrc3:0"
+    "head1/.conkyrc0:$BASE/.conkyrc0-head1:1"
+    "head1/.conkyrc1:$BASE/.conkyrc1-head1:1"
+    "head1/.conkyrc2:$BASE/.conkyrc2-head1:1"
+    "head1/.conkyrc3:$BASE/.conkyrc3-head1:1"
+    "head1/.conkyrc4:$BASE/.conkyrc4-head1:1"
+  )
+
+  local entry dest title
+  for entry in "${entries[@]}"; do
+    IFS=':' read -r rel source head <<<"$entry"
+    dest="$BASE/$rel"
+    title="$(window_title_for_path "$dest")"
+    geom="${geom_by_title[$title]:-}"
+    if [[ -z "$geom" ]]; then
+      log "could not find window for $title"
+      continue
+    fi
+    read -r x y <<<"$geom"
+    x=$((x - ${monitor_origin_x[$head]:-0}))
+    y=$((y - ${monitor_origin_y[$head]:-0}))
+    printf '%s\t%s\t%s\t%s\t%s\n' "$rel" "$x" "$y" "$head" "$source" >>"$output_file"
+  done
+
+  printf '%s\n' "$(layout_signature "$output_file" "$(template_signature)")" >"$sig_file"
+  log "captured $label layout."
+}
+
 build_conky_layouts() {
-  local specs monitor_count idx name width height origin_x origin_y sig monitor_dir layout_mode tmpl_sig manual_sig window_type
+  local specs monitor_count idx name width height origin_x origin_y sig monitor_dir layout_mode tmpl_sig window_type
   local window_hints
   sig="$(monitor_signature)"
   monitor_count="$(connected_monitor_count)"
@@ -140,34 +259,13 @@ build_conky_layouts() {
     window_hints="skip_taskbar,skip_pager"
   fi
 
-  if [[ "$layout_mode" == "manual" ]]; then
-    manual_sig="$(manual_layout_signature)"
-    if [[ -f "$MANUAL_LAYOUT_SIG_FILE" && "$(cat "$MANUAL_LAYOUT_SIG_FILE" 2>/dev/null)" == "$manual_sig" && "${#CONKY_RENDERED_CONFIGS[@]}" -gt 0 ]]; then
-      return 0
-    fi
-
-    mkdir -p "$CONKY_LAYOUT_DIR"
-    rm -rf "$CONKY_LAYOUT_DIR"/*
-    CONKY_RENDERED_CONFIGS=()
-
-    if [[ ! -f "$MANUAL_GEOM_FILE" ]]; then
-      log "manual layout mode requested but no manual layouts exist."
-      return 0
-    fi
-
-    while IFS=$'\t' read -r rel x y head source; do
-      [[ -n "${rel:-}" ]] || continue
-      mkdir -p "$CONKY_LAYOUT_DIR/$(dirname "$rel")"
-      render_conky_config "$source" "$CONKY_LAYOUT_DIR/$rel" "$x" "$y" "$head" top_left "$window_type" "$window_hints"
-      CONKY_RENDERED_CONFIGS+=("$CONKY_LAYOUT_DIR/$rel")
-    done <"$MANUAL_GEOM_FILE"
-
-    printf '%s\n' "$manual_sig" >"$MANUAL_LAYOUT_SIG_FILE"
-    log "rendered manual conky layout."
+  if [[ "$layout_mode" == "manual" && -s "$MANUAL_GEOM_FILE" ]]; then
+    render_saved_layout "$MANUAL_GEOM_FILE" "$MANUAL_LAYOUT_SIG_FILE" "manual" "desktop" "undecorated,below,sticky,skip_taskbar,skip_pager" "$tmpl_sig"
     return 0
   fi
 
-  if [[ "$layout_mode" == "auto" && -f "$MONITOR_SIG_FILE" && -f "$TEMPLATE_SIG_FILE" && "$(cat "$MONITOR_SIG_FILE" 2>/dev/null)" == "$sig" && "$(cat "$TEMPLATE_SIG_FILE" 2>/dev/null)" == "$tmpl_sig" && "${#CONKY_RENDERED_CONFIGS[@]}" -gt 0 ]]; then
+  if [[ "$layout_mode" == "auto" && -s "$AUTO_GEOM_FILE" ]]; then
+    render_saved_layout "$AUTO_GEOM_FILE" "$AUTO_LAYOUT_SIG_FILE" "auto" "desktop" "undecorated,below,sticky,skip_taskbar,skip_pager" "$tmpl_sig"
     return 0
   fi
 
@@ -393,69 +491,24 @@ daemon_loop() {
 }
 
 save_current_layouts() {
-  local source dest rel title geom x y
-  declare -A geom_by_title=()
-  declare -A monitor_origin_x=()
-  declare -A monitor_origin_y=()
-
-  local idx name width height origin_x origin_y
-  mapfile -t specs < <(monitor_specs)
-  for idx in "${!specs[@]}"; do
-    read -r name width height origin_x origin_y <<<"${specs[$idx]}"
-    monitor_origin_x["$idx"]="$origin_x"
-    monitor_origin_y["$idx"]="$origin_y"
-  done
-
-  while IFS=$'\t' read -r title x y; do
-    geom_by_title["$title"]="$x $y"
-  done < <(
-    python3 - <<'PY'
-import re, subprocess
-tree = subprocess.check_output(["xwininfo", "-root", "-tree"], text=True, stderr=subprocess.DEVNULL)
-pattern = re.compile(
-    r'"(?P<title>lmpanel-[^"]+)".*?'
-    r'(?P<w>\d+)x(?P<h>\d+)\+(?P<relx>-?\d+)\+(?P<rely>-?\d+)\s+\+'
-    r'(?P<x>-?\d+)\+(?P<y>-?\d+)$',
-    re.M,
-)
-for m in pattern.finditer(tree):
-    print(f"{m.group('title')}\t{m.group('x')}\t{m.group('y')}")
-PY
-  )
-
-  : >"$MANUAL_GEOM_FILE"
-
-  local entries=(
-    "head0/.conkyrc0:$BASE/.conkyrc0:0"
-    "head0/.conkyrc1:$BASE/.conkyrc1:0"
-    "head0/.conkyrc2:$BASE/.conkyrc2:0"
-    "head0/.conkyrc3:$BASE/.conkyrc3:0"
-    "head1/.conkyrc0:$BASE/.conkyrc0-head1:1"
-    "head1/.conkyrc1:$BASE/.conkyrc1-head1:1"
-    "head1/.conkyrc2:$BASE/.conkyrc2-head1:1"
-    "head1/.conkyrc3:$BASE/.conkyrc3-head1:1"
-    "head1/.conkyrc4:$BASE/.conkyrc4-head1:1"
-  )
-
-  local entry spec_parts runtime_path head
-  for entry in "${entries[@]}"; do
-    IFS=':' read -r rel source head <<<"$entry"
-    dest="$MANUAL_LAYOUT_DIR/$rel"
-    title="$(window_title_for_path "$dest")"
-    geom="${geom_by_title[$title]:-}"
-    if [[ -z "$geom" ]]; then
-      log "could not find window for $title"
-      continue
-    fi
-    read -r x y <<<"$geom"
-    x=$((x - ${monitor_origin_x[$head]:-0}))
-    y=$((y - ${monitor_origin_y[$head]:-0}))
-    printf '%s\t%s\t%s\t%s\t%s\n' "$rel" "$x" "$y" "$head" "$source" >>"$MANUAL_GEOM_FILE"
-  done
-
-  manual_layout_signature >"$MANUAL_LAYOUT_SIG_FILE"
+  capture_current_layouts "$MANUAL_GEOM_FILE" "$MANUAL_LAYOUT_SIG_FILE" "manual"
   printf 'manual\n' >"$LAYOUT_MODE_FILE"
   log "saved manual conky layout."
+}
+
+set_auto_layout_mode() {
+  local edit_pid
+  capture_current_layouts "$AUTO_GEOM_FILE" "$AUTO_LAYOUT_SIG_FILE" "auto"
+  edit_pid="$(cat "$EDIT_PID_FILE" 2>/dev/null || true)"
+  rm -f "$EDIT_PID_FILE"
+  if [[ -n "${edit_pid:-}" ]]; then
+    kill "$edit_pid" >/dev/null 2>&1 || true
+  fi
+  pkill -f "$CONKY_LAYOUT_DIR" >/dev/null 2>&1 || true
+  pkill -f "$BASE/.conkyrc[0-4]" >/dev/null 2>&1 || true
+  printf 'auto\n' >"$LAYOUT_MODE_FILE"
+  systemctl --user daemon-reload >/dev/null 2>&1 || true
+  systemctl --user restart lmpanel.service >/dev/null 2>&1 || systemctl --user start lmpanel.service >/dev/null 2>&1 || true
 }
 
 edit_loop() {
@@ -487,9 +540,7 @@ save_layout_mode() {
 }
 
 auto_layout_mode() {
-  rm -rf "$MANUAL_LAYOUT_DIR"
-  rm -f "$MANUAL_GEOM_FILE"
-  rm -f "$MANUAL_LAYOUT_SIG_FILE" "$EDIT_PID_FILE"
+  rm -f "$EDIT_PID_FILE"
   printf 'auto\n' >"$LAYOUT_MODE_FILE"
   systemctl --user daemon-reload >/dev/null 2>&1 || true
   systemctl --user restart lmpanel.service >/dev/null 2>&1 || systemctl --user start lmpanel.service >/dev/null 2>&1 || true
@@ -512,6 +563,9 @@ case "${1:-}" in
     ;;
   --save-layout)
     save_layout_mode
+    ;;
+  --set-auto-layout)
+    set_auto_layout_mode
     ;;
   --auto-layout)
     auto_layout_mode
