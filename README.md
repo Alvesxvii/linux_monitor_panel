@@ -22,3 +22,11 @@ Quick control:
 - `lmpanel save`
 - `lmpanel set-auto`
 - `lmpanel auto`
+- `lmpanel profile 1|2|3`
+- `lmpanel set-profile 1|2|3`
+- `lmpanel save-profile`
+
+Profiles:
+- `profile 1|2|3` activates one of the saved layout profiles.
+- `set-profile 1|2|3` enters edit mode for that profile.
+- `save-profile` stores the edited positions back into the currently targeted profile.

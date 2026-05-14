@@ -15,7 +15,10 @@ MONITOR_SIG_FILE="$BASE/monitor-signature"
 TEMPLATE_SIG_FILE="$BASE/template-signature"
 MANUAL_LAYOUT_SIG_FILE="$BASE/manual-layout-signature"
 AUTO_LAYOUT_SIG_FILE="$BASE/auto-layout-signature"
+PROFILE_GEOM_FILE_PREFIX="$BASE/profile-"
+PROFILE_LAYOUT_SIG_PREFIX="$BASE/profile-"
 LAYOUT_MODE_FILE="$BASE/layout-mode"
+EDIT_TARGET_FILE="$BASE/edit-target"
 EDIT_PID_FILE="$BASE/edit-mode.pid"
 CONKY_RENDERED_CONFIGS=()
 SCRIPT_PATH="$(readlink -f "$0" 2>/dev/null || printf '%s' "$0")"
@@ -83,6 +86,7 @@ manual_layout_signature() {
 layout_signature() {
   local geom_file="$1"
   local tmpl_sig="$2"
+  local render_sig="${3:-desktop:undecorated,below,sticky,skip_taskbar,skip_pager}"
 
   if [[ ! -f "$geom_file" ]]; then
     printf 'no-layout\n'
@@ -91,8 +95,49 @@ layout_signature() {
 
   {
     sha256sum "$geom_file" 2>/dev/null
-    printf '%s\n' "$tmpl_sig"
+    printf '%s\n%s\n' "$tmpl_sig" "$render_sig"
   } | sha256sum | awk '{print $1}'
+}
+
+profile_geom_file() {
+  printf '%s\n' "${PROFILE_GEOM_FILE_PREFIX}${1}.tsv"
+}
+
+profile_sig_file() {
+  printf '%s\n' "${PROFILE_LAYOUT_SIG_PREFIX}${1}-signature"
+}
+
+layout_file_for_target() {
+  case "$1" in
+    manual) printf '%s\n' "$MANUAL_GEOM_FILE" ;;
+    auto) printf '%s\n' "$AUTO_GEOM_FILE" ;;
+    profile-1|profile-2|profile-3) profile_geom_file "${1#profile-}" ;;
+    *) printf '%s\n' "$MANUAL_GEOM_FILE" ;;
+  esac
+}
+
+layout_sig_file_for_target() {
+  case "$1" in
+    manual) printf '%s\n' "$MANUAL_LAYOUT_SIG_FILE" ;;
+    auto) printf '%s\n' "$AUTO_LAYOUT_SIG_FILE" ;;
+    profile-1|profile-2|profile-3) profile_sig_file "${1#profile-}" ;;
+    *) printf '%s\n' "$MANUAL_LAYOUT_SIG_FILE" ;;
+  esac
+}
+
+normalize_edit_target() {
+  case "$1" in
+    profile-1|profile-2|profile-3|manual)
+      printf '%s\n' "$1"
+      ;;
+    *)
+      printf 'manual\n'
+      ;;
+  esac
+}
+
+current_edit_target() {
+  normalize_edit_target "$(cat "$EDIT_TARGET_FILE" 2>/dev/null || printf 'manual')"
 }
 
 monitor_specs() {
@@ -147,7 +192,7 @@ render_saved_layout() {
   local tmpl_sig="$6"
   local layout_sig rel x y head source
 
-  layout_sig="$(layout_signature "$geom_file" "$tmpl_sig")"
+  layout_sig="$(layout_signature "$geom_file" "$tmpl_sig" "${window_type}:${window_hints}")"
   if [[ -f "$sig_file" && "$(cat "$sig_file" 2>/dev/null)" == "$layout_sig" && "${#CONKY_RENDERED_CONFIGS[@]}" -gt 0 ]]; then
     return 0
   fi
@@ -235,7 +280,7 @@ PY
     printf '%s\t%s\t%s\t%s\t%s\n' "$rel" "$x" "$y" "$head" "$source" >>"$output_file"
   done
 
-  printf '%s\n' "$(layout_signature "$output_file" "$(template_signature)")" >"$sig_file"
+  printf '%s\n' "$(layout_signature "$output_file" "$(template_signature)" "desktop:undecorated,below,sticky,skip_taskbar,skip_pager")" >"$sig_file"
   log "captured $label layout."
 }
 
@@ -251,6 +296,27 @@ build_conky_layouts() {
   if [[ "$layout_mode" == "edit" ]]; then
     window_type="normal"
     window_hints="skip_taskbar,skip_pager"
+    local edit_target edit_geom edit_sig
+    edit_target="$(current_edit_target)"
+    case "$edit_target" in
+      profile-1|profile-2|profile-3)
+        edit_geom="$(layout_file_for_target "$edit_target")"
+        edit_sig="$(layout_sig_file_for_target "$edit_target")"
+        if [[ -s "$edit_geom" ]]; then
+          render_saved_layout "$edit_geom" "$edit_sig" "$edit_target" "$window_type" "$window_hints" "$tmpl_sig"
+          return 0
+        fi
+        ;;
+    esac
+
+    if [[ -s "$MANUAL_GEOM_FILE" ]]; then
+      render_saved_layout "$MANUAL_GEOM_FILE" "$MANUAL_LAYOUT_SIG_FILE" "manual-edit" "$window_type" "$window_hints" "$tmpl_sig"
+      return 0
+    fi
+    if [[ -s "$AUTO_GEOM_FILE" ]]; then
+      render_saved_layout "$AUTO_GEOM_FILE" "$AUTO_LAYOUT_SIG_FILE" "auto-edit" "$window_type" "$window_hints" "$tmpl_sig"
+      return 0
+    fi
   fi
 
   if [[ "$layout_mode" == "manual" && -s "$MANUAL_GEOM_FILE" ]]; then
@@ -261,6 +327,21 @@ build_conky_layouts() {
   if [[ "$layout_mode" == "auto" && -s "$AUTO_GEOM_FILE" ]]; then
     render_saved_layout "$AUTO_GEOM_FILE" "$AUTO_LAYOUT_SIG_FILE" "auto" "desktop" "undecorated,below,sticky,skip_taskbar,skip_pager" "$tmpl_sig"
     return 0
+  fi
+
+  if [[ "$layout_mode" == profile-* ]]; then
+    local profile_num profile_geom profile_sig
+    profile_num="${layout_mode#profile-}"
+    profile_geom="$(profile_geom_file "$profile_num")"
+    profile_sig="$(profile_sig_file "$profile_num")"
+    if [[ -s "$profile_geom" ]]; then
+      render_saved_layout "$profile_geom" "$profile_sig" "$layout_mode" "desktop" "undecorated,below,sticky,skip_taskbar,skip_pager" "$tmpl_sig"
+      return 0
+    fi
+    if [[ -s "$AUTO_GEOM_FILE" ]]; then
+      render_saved_layout "$AUTO_GEOM_FILE" "$AUTO_LAYOUT_SIG_FILE" "auto" "desktop" "undecorated,below,sticky,skip_taskbar,skip_pager" "$tmpl_sig"
+      return 0
+    fi
   fi
 
   mkdir -p "$CONKY_LAYOUT_DIR"
@@ -484,9 +565,14 @@ daemon_loop() {
 }
 
 save_current_layouts() {
-  capture_current_layouts "$MANUAL_GEOM_FILE" "$MANUAL_LAYOUT_SIG_FILE" "manual"
-  printf 'manual\n' >"$LAYOUT_MODE_FILE"
-  log "saved manual conky layout."
+  local target geom_file sig_file
+  target="$(current_edit_target)"
+  geom_file="$(layout_file_for_target "$target")"
+  sig_file="$(layout_sig_file_for_target "$target")"
+  capture_current_layouts "$geom_file" "$sig_file" "$target"
+  printf '%s\n' "$target" >"$LAYOUT_MODE_FILE"
+  printf '%s\n' "$target" >"$EDIT_TARGET_FILE"
+  log "saved $target conky layout."
 }
 
 set_auto_layout_mode() {
@@ -505,6 +591,9 @@ set_auto_layout_mode() {
 }
 
 edit_loop() {
+  local target
+  target="$(current_edit_target)"
+  printf '%s\n' "$target" >"$EDIT_TARGET_FILE"
   printf '%s\n' "$$" >"$EDIT_PID_FILE"
   printf 'edit\n' >"$LAYOUT_MODE_FILE"
   systemctl --user stop lmpanel.service >/dev/null 2>&1 || true
@@ -532,6 +621,20 @@ save_layout_mode() {
   systemctl --user restart lmpanel.service >/dev/null 2>&1 || systemctl --user start lmpanel.service >/dev/null 2>&1 || true
 }
 
+save_profile_layout_mode() {
+  local target
+  target="$(current_edit_target)"
+  case "$target" in
+    profile-1|profile-2|profile-3)
+      save_layout_mode
+      ;;
+    *)
+      printf 'lmpanel save-profile requires lmpanel set-profile 1|2|3 first\n' >&2
+      return 1
+      ;;
+  esac
+}
+
 auto_layout_mode() {
   rm -f "$EDIT_PID_FILE"
   printf 'auto\n' >"$LAYOUT_MODE_FILE"
@@ -557,11 +660,28 @@ case "${1:-}" in
   --save-layout)
     save_layout_mode
     ;;
+  --save-profile-layout)
+    save_profile_layout_mode
+    ;;
   --set-auto-layout)
     set_auto_layout_mode
     ;;
   --auto-layout)
     auto_layout_mode
+    ;;
+  --profile-layout)
+    profile_num="${2:-}"
+    case "$profile_num" in
+      1|2|3)
+        printf 'profile-%s\n' "$profile_num" >"$LAYOUT_MODE_FILE"
+        systemctl --user daemon-reload >/dev/null 2>&1 || true
+        systemctl --user restart lmpanel.service >/dev/null 2>&1 || systemctl --user start lmpanel.service >/dev/null 2>&1 || true
+        ;;
+      *)
+        printf 'profile number must be 1, 2, or 3\n' >&2
+        exit 1
+        ;;
+    esac
     ;;
   *)
     update_snapshot

@@ -6,9 +6,12 @@ monitor-signature
 template-signature
 manual-layout.tsv
 auto-layout.tsv
+profile-*.tsv
 auto-layout-signature
 manual-layout-signature
+profile-*-signature
 conky-edit-runtime/
+edit-target
 home/
 usr/
 

@@ -2,33 +2,63 @@
 set -euo pipefail
 
 panel_script="$HOME/.lmpanel/lmpanel.sh"
+edit_target_file="$HOME/.lmpanel/edit-target"
 
 if [[ ! -x "$panel_script" ]]; then
   echo "lmpanel: missing panel script at $panel_script" >&2
   exit 1
 fi
 
+usage() {
+  cat <<'EOF'
+Usage:
+  lmpanel edit              # enter manual edit mode and drag the panels
+  lmpanel save              # save the current manual panel positions
+  lmpanel auto              # return to automatic monitor-based layout
+  lmpanel set-auto          # save current positions as the automatic baseline
+  lmpanel profile 1|2|3     # activate saved profile 1, 2, or 3
+  lmpanel set-profile 1|2|3 # enter edit mode for profile 1, 2, or 3
+  lmpanel save-profile      # save the currently edited profile
+  lmpanel                   # show this help
+EOF
+}
+
+validate_profile() {
+  case "${1:-}" in
+    1|2|3) return 0 ;;
+    *)
+      echo "lmpanel: profile number must be 1, 2, or 3" >&2
+      return 1
+      ;;
+  esac
+}
+
 case "${1:-}" in
-  edit|save|auto|set-auto)
+  edit|save|auto|set-auto|profile|set-profile|save-profile)
     case "$1" in
       edit)
+        printf 'manual\n' >"$edit_target_file"
         nohup "$panel_script" --edit >/dev/null 2>&1 &
         disown 2>/dev/null || true
         ;;
       save) exec "$panel_script" --save-layout ;;
       auto) exec "$panel_script" --auto-layout ;;
       set-auto) exec "$panel_script" --set-auto-layout ;;
+      profile)
+        validate_profile "${2:-}" || exit 1
+        exec "$panel_script" --profile-layout "$2"
+        ;;
+      set-profile)
+        validate_profile "${2:-}" || exit 1
+        printf 'profile-%s\n' "$2" >"$edit_target_file"
+        nohup "$panel_script" --edit >/dev/null 2>&1 &
+        disown 2>/dev/null || true
+        ;;
+      save-profile) exec "$panel_script" --save-profile-layout ;;
     esac
     ;;
   help|-h|--help|"")
-    cat <<'EOF'
-Usage:
-  lmpanel edit   # enter manual edit mode and drag the panels
-  lmpanel save   # save the current panel positions
-  lmpanel set-auto  # save current positions as the automatic baseline
-  lmpanel auto   # return to automatic monitor-based layout
-  lmpanel        # show this help
-EOF
+    usage
     ;;
   *)
     echo "lmpanel: unknown command: $1" >&2
