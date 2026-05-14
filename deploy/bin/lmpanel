@@ -5,21 +5,27 @@ panel_script="$HOME/.lmpanel/lmpanel.sh"
 edit_target_file="$HOME/.lmpanel/edit-target"
 
 if [[ ! -x "$panel_script" ]]; then
-  echo "lmpanel: missing panel script at $panel_script" >&2
+  echo "lmpanel: script principal ausente em $panel_script" >&2
   exit 1
 fi
 
 usage() {
   cat <<'EOF'
-Usage:
-  lmpanel edit              # enter manual edit mode and drag the panels
-  lmpanel save              # save the current manual panel positions
-  lmpanel auto              # return to automatic monitor-based layout
-  lmpanel set-auto          # save current positions as the automatic baseline
-  lmpanel profile 1|2|3     # activate saved profile 1, 2, or 3
-  lmpanel set-profile 1|2|3 # enter edit mode for profile 1, 2, or 3
-  lmpanel save-profile      # save the currently edited profile
-  lmpanel                   # show this help
+Uso:
+  lmpanel edit               # entra no modo de edição manual e arrasta os painéis
+  lmpanel save               # salva as posições atuais dos painéis manuais
+  lmpanel auto               # volta para o layout automático baseado no monitor
+  lmpanel set-auto           # salva as posições atuais como base automática
+  lmpanel profile 1|2|3      # ativa o perfil salvo 1, 2 ou 3
+  lmpanel set-profile 1|2|3  # entra no modo de edição para o perfil 1, 2 ou 3
+  lmpanel save-profile       # salva o perfil que está sendo editado no momento
+  lmpanel wallpaper list     # lista os wallpapers disponíveis em ~/.local/share/backgrounds/lmpanel
+  lmpanel wallpaper remember # lembra o wallpaper atual do sistema como base de restauração
+  lmpanel wallpaper system   # restaura o wallpaper definido pelo sistema
+  lmpanel wallpaper next     # vai para o próximo wallpaper do diretório do lmpanel
+  lmpanel wallpaper prev     # volta para o wallpaper anterior do diretório do lmpanel
+  lmpanel wallpaper <arquivo> # aplica um wallpaper pelo nome do arquivo no diretório do lmpanel
+  lmpanel                    # mostra esta ajuda
 EOF
 }
 
@@ -27,14 +33,14 @@ validate_profile() {
   case "${1:-}" in
     1|2|3) return 0 ;;
     *)
-      echo "lmpanel: profile number must be 1, 2, or 3" >&2
+      echo "lmpanel: o número do perfil deve ser 1, 2 ou 3" >&2
       return 1
       ;;
   esac
 }
 
 case "${1:-}" in
-  edit|save|auto|set-auto|profile|set-profile|save-profile)
+  edit|save|auto|set-auto|profile|set-profile|save-profile|wallpaper)
     case "$1" in
       edit)
         printf 'manual\n' >"$edit_target_file"
@@ -55,14 +61,39 @@ case "${1:-}" in
         disown 2>/dev/null || true
         ;;
       save-profile) exec "$panel_script" --save-profile-layout ;;
+      wallpaper)
+        case "${2:-}" in
+          list)
+            exec "$panel_script" --list-wallpapers
+            ;;
+          remember)
+            exec "$panel_script" --remember-wallpaper
+            ;;
+          system)
+            exec "$panel_script" --system-wallpaper
+            ;;
+          next)
+            exec "$panel_script" --next-wallpaper
+            ;;
+          prev)
+            exec "$panel_script" --prev-wallpaper
+            ;;
+          "")
+            usage
+            ;;
+          *)
+            exec "$panel_script" --set-wallpaper "$2"
+            ;;
+        esac
+        ;;
     esac
     ;;
   help|-h|--help|"")
     usage
     ;;
   *)
-    echo "lmpanel: unknown command: $1" >&2
-    echo "Try: lmpanel --help" >&2
+    echo "lmpanel: comando desconhecido: $1" >&2
+    echo "Tente: lmpanel --help" >&2
     exit 1
     ;;
 esac

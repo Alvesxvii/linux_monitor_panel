@@ -25,8 +25,21 @@ Quick control:
 - `lmpanel profile 1|2|3`
 - `lmpanel set-profile 1|2|3`
 - `lmpanel save-profile`
+- `lmpanel wallpaper list`
+- `lmpanel wallpaper remember`
+- `lmpanel wallpaper system`
+- `lmpanel wallpaper next`
+- `lmpanel wallpaper prev`
+- `lmpanel wallpaper <file>`
 
 Profiles:
 - `profile 1|2|3` activates one of the saved layout profiles.
 - `set-profile 1|2|3` enters edit mode for that profile.
 - `save-profile` stores the edited positions back into the currently targeted profile.
+
+Wallpaper:
+- `wallpaper list` prints the images available in `~/.local/share/backgrounds/lmpanel`.
+- `wallpaper remember` stores the current GNOME wallpaper as the restore baseline.
+- `wallpaper system` restores the wallpaper set by the desktop session.
+- `wallpaper next` and `wallpaper prev` cycle through the wallpapers in the lmpanel directory.
+- `wallpaper <file>` applies a wallpaper from the `lmpanel` backgrounds directory by filename.

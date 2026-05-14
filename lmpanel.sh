@@ -3,7 +3,6 @@ set -euo pipefail
 
 BASE="$HOME/.lmpanel"
 BG_DIR="$HOME/.local/share/backgrounds/lmpanel"
-WALLPAPER="$BG_DIR/243811.png"
 LOG_FILE="$BASE/lmpanel.log"
 CONKY_BIN="$HOME/.local/bin/conky"
 CONKY_LAYOUT_DIR="$BASE/conky-runtime"
@@ -20,6 +19,9 @@ PROFILE_LAYOUT_SIG_PREFIX="$BASE/profile-"
 LAYOUT_MODE_FILE="$BASE/layout-mode"
 EDIT_TARGET_FILE="$BASE/edit-target"
 EDIT_PID_FILE="$BASE/edit-mode.pid"
+WALLPAPER_MODE_FILE="$BASE/wallpaper-mode"
+WALLPAPER_CHOICE_FILE="$BASE/wallpaper-choice"
+WALLPAPER_BACKUP_URI_FILE="$BASE/system-wallpaper-uri"
 CONKY_RENDERED_CONFIGS=()
 SCRIPT_PATH="$(readlink -f "$0" 2>/dev/null || printf '%s' "$0")"
 
@@ -138,6 +140,93 @@ normalize_edit_target() {
 
 current_edit_target() {
   normalize_edit_target "$(cat "$EDIT_TARGET_FILE" 2>/dev/null || printf 'manual')"
+}
+
+current_wallpaper_mode() {
+  local mode
+  mode="$(cat "$WALLPAPER_MODE_FILE" 2>/dev/null || printf 'custom')"
+  case "$mode" in
+    custom|system) printf '%s\n' "$mode" ;;
+    *) printf 'custom\n' ;;
+  esac
+}
+
+current_wallpaper_choice() {
+  local choice
+  choice="$(cat "$WALLPAPER_CHOICE_FILE" 2>/dev/null || printf '243811.png')"
+  if [[ "$choice" == /* ]]; then
+    printf '%s\n' "$choice"
+  else
+    printf '%s\n' "$BG_DIR/$choice"
+  fi
+}
+
+wallpaper_list() {
+  find "$BG_DIR" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' -o -iname '*.bmp' -o -iname '*.gif' \) \
+    -printf '%f\n' 2>/dev/null | sort
+}
+
+wallpaper_cycle() {
+  local step="${1:-1}"
+  local current basename current_index index next_index
+  local -a wallpapers=()
+
+  mapfile -t wallpapers < <(wallpaper_list)
+  if [[ "${#wallpapers[@]}" -eq 0 ]]; then
+    printf 'nenhum wallpaper encontrado em %s\n' "$BG_DIR" >&2
+    return 1
+  fi
+
+  basename="$(basename "$(current_wallpaper_choice)")"
+  current_index=-1
+  for index in "${!wallpapers[@]}"; do
+    if [[ "${wallpapers[$index]}" == "$basename" ]]; then
+      current_index="$index"
+      break
+    fi
+  done
+
+  if [[ "$current_index" -lt 0 ]]; then
+    current_index=0
+  fi
+
+  next_index=$(( (current_index + step + ${#wallpapers[@]}) % ${#wallpapers[@]} ))
+  printf '%s\n' "${wallpapers[$next_index]}"
+}
+
+wallpaper_uri_from_path() {
+  local path="$1"
+  printf 'file://%s\n' "$path"
+}
+
+capture_system_wallpaper_backup() {
+  local uri uri_dark
+  if command -v gsettings >/dev/null 2>&1; then
+    uri="$(gsettings get org.gnome.desktop.background picture-uri 2>/dev/null || true)"
+    uri_dark="$(gsettings get org.gnome.desktop.background picture-uri-dark 2>/dev/null || true)"
+    if [[ -n "$uri" ]]; then
+      write_file "$WALLPAPER_BACKUP_URI_FILE" "$uri"
+      write_file "$BASE/system-wallpaper-uri-dark" "${uri_dark:-$uri}"
+    fi
+  fi
+}
+
+remember_system_wallpaper() {
+  capture_system_wallpaper_backup
+  if [[ -f "$WALLPAPER_BACKUP_URI_FILE" ]]; then
+    log "wallpaper do sistema lembrado."
+  else
+    log "não foi possível lembrar o wallpaper do sistema; gsettings indisponível ou wallpaper não definido."
+    return 1
+  fi
+}
+
+apply_wallpaper_uri() {
+  local uri="$1"
+  if command -v gsettings >/dev/null 2>&1 && [[ -n "$uri" ]]; then
+    gsettings set org.gnome.desktop.background picture-uri "$uri" >/dev/null 2>&1 || true
+    gsettings set org.gnome.desktop.background picture-uri-dark "$uri" >/dev/null 2>&1 || true
+  fi
 }
 
 monitor_specs() {
@@ -410,12 +499,66 @@ coingecko_prices() {
     2>/dev/null || true
 }
 
-set_wallpaper() {
-  if command -v gsettings >/dev/null 2>&1 && [[ -f "$WALLPAPER" ]]; then
-    local uri="file://$WALLPAPER"
-    gsettings set org.gnome.desktop.background picture-uri "$uri" >/dev/null 2>&1 || true
-    gsettings set org.gnome.desktop.background picture-uri-dark "$uri" >/dev/null 2>&1 || true
+set_wallpaper_custom() {
+  local wallpaper_path uri
+  wallpaper_path="$(current_wallpaper_choice)"
+  if [[ ! -f "$wallpaper_path" ]]; then
+    wallpaper_path="$BG_DIR/243811.png"
   fi
+
+  if [[ -f "$wallpaper_path" ]]; then
+    capture_system_wallpaper_backup
+    uri="$(wallpaper_uri_from_path "$wallpaper_path")"
+    write_file "$WALLPAPER_MODE_FILE" "custom"
+    write_file "$WALLPAPER_CHOICE_FILE" "$(basename "$wallpaper_path")"
+    apply_wallpaper_uri "$uri"
+  fi
+}
+
+set_wallpaper_by_name() {
+  local wallpaper_arg="$1"
+  local wallpaper_path
+  if [[ "$wallpaper_arg" == /* ]]; then
+    wallpaper_path="$wallpaper_arg"
+  else
+    wallpaper_path="$BG_DIR/$wallpaper_arg"
+  fi
+
+  if [[ ! -f "$wallpaper_path" ]]; then
+    printf 'wallpaper não encontrado: %s\n' "$wallpaper_arg" >&2
+    return 1
+  fi
+
+  capture_system_wallpaper_backup
+  write_file "$WALLPAPER_CHOICE_FILE" "$(basename "$wallpaper_path")"
+  apply_wallpaper_uri "$(wallpaper_uri_from_path "$wallpaper_path")"
+  write_file "$WALLPAPER_MODE_FILE" "custom"
+}
+
+restore_system_wallpaper() {
+  local backup backup_dark
+  backup="$(cat "$WALLPAPER_BACKUP_URI_FILE" 2>/dev/null || true)"
+  backup_dark="$(cat "$BASE/system-wallpaper-uri-dark" 2>/dev/null || true)"
+
+  write_file "$WALLPAPER_MODE_FILE" "system"
+  if [[ -n "$backup" ]]; then
+    apply_wallpaper_uri "$backup"
+    if [[ -n "$backup_dark" ]]; then
+      gsettings set org.gnome.desktop.background picture-uri-dark "$backup_dark" >/dev/null 2>&1 || true
+    fi
+  elif command -v gsettings >/dev/null 2>&1; then
+    gsettings reset org.gnome.desktop.background picture-uri >/dev/null 2>&1 || true
+    gsettings reset org.gnome.desktop.background picture-uri-dark >/dev/null 2>&1 || true
+  fi
+}
+
+apply_wallpaper_policy() {
+  case "$(current_wallpaper_mode)" in
+    system) restore_system_wallpaper ;;
+    custom|*)
+      set_wallpaper_custom
+      ;;
+  esac
 }
 
 update_snapshot() {
@@ -598,7 +741,7 @@ edit_loop() {
   printf 'edit\n' >"$LAYOUT_MODE_FILE"
   systemctl --user stop lmpanel.service >/dev/null 2>&1 || true
   update_snapshot || true
-  set_wallpaper
+  apply_wallpaper_policy
   build_conky_layouts
   start_rendered_conky
   log "edit mode active; move the cards, then run --save-layout."
@@ -678,14 +821,39 @@ case "${1:-}" in
         systemctl --user restart lmpanel.service >/dev/null 2>&1 || systemctl --user start lmpanel.service >/dev/null 2>&1 || true
         ;;
       *)
-        printf 'profile number must be 1, 2, or 3\n' >&2
+        printf 'o número do perfil deve ser 1, 2 ou 3\n' >&2
         exit 1
         ;;
     esac
     ;;
+  --list-wallpapers)
+    wallpaper_list
+    ;;
+  --remember-wallpaper)
+    remember_system_wallpaper
+    ;;
+  --set-wallpaper)
+    wallpaper_arg="${2:-}"
+    if [[ -z "$wallpaper_arg" ]]; then
+      printf 'o nome do wallpaper é obrigatório\n' >&2
+      exit 1
+    fi
+    set_wallpaper_by_name "$wallpaper_arg"
+    ;;
+  --next-wallpaper)
+    next_wallpaper="$(wallpaper_cycle 1)"
+    set_wallpaper_by_name "$next_wallpaper"
+    ;;
+  --prev-wallpaper)
+    prev_wallpaper="$(wallpaper_cycle -1)"
+    set_wallpaper_by_name "$prev_wallpaper"
+    ;;
+  --system-wallpaper)
+    restore_system_wallpaper
+    ;;
   *)
     update_snapshot
-    set_wallpaper
+    apply_wallpaper_policy
     refresh_conky_layouts
     if [[ -n "${DISPLAY:-}" || -n "${WAYLAND_DISPLAY:-}" ]]; then
       ensure_daemon_running
