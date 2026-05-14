@@ -1,4 +1,4 @@
-# Kodachi Overlay
+# Overlay
 
 This repository contains the desktop overlay setup extracted from the Kodachi look-and-feel rebuild.
 
