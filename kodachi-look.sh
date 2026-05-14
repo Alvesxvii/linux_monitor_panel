@@ -8,6 +8,7 @@ LOG_FILE="$BASE/kodachi-look.log"
 CONKY_BIN="$HOME/.local/bin/conky"
 CONKY_LAYOUT_DIR="$BASE/conky-runtime"
 MONITOR_SIG_FILE="$BASE/monitor-signature"
+TEMPLATE_SIG_FILE="$BASE/template-signature"
 CONKY_RENDERED_CONFIGS=()
 SCRIPT_PATH="$(readlink -f "$0" 2>/dev/null || printf '%s' "$0")"
 
@@ -52,6 +53,21 @@ monitor_signature() {
   fi
 }
 
+template_signature() {
+  sha256sum \
+    "$BASE/.conkyrc0" \
+    "$BASE/.conkyrc1" \
+    "$BASE/.conkyrc2" \
+    "$BASE/.conkyrc3" \
+    "$BASE/.conkyrc4-head1" \
+    "$BASE/.conkyrc0-head1" \
+    "$BASE/.conkyrc1-head1" \
+    "$BASE/.conkyrc2-head1" \
+    "$BASE/.conkyrc3-head1" \
+    "$BASE/conky_orange.lua" \
+    2>/dev/null | sha256sum | awk '{print $1}'
+}
+
 monitor_specs() {
   if command -v xrandr >/dev/null 2>&1 && [[ -n "${DISPLAY:-}" ]]; then
     xrandr --query 2>/dev/null | awk '
@@ -86,13 +102,16 @@ build_conky_layouts() {
   local specs monitor_count idx name width height origin_x origin_y sig monitor_dir
   sig="$(monitor_signature)"
   monitor_count="$(connected_monitor_count)"
+  local tmpl_sig
+  tmpl_sig="$(template_signature)"
 
-  if [[ -f "$MONITOR_SIG_FILE" && "$(cat "$MONITOR_SIG_FILE" 2>/dev/null)" == "$sig" && "${#CONKY_RENDERED_CONFIGS[@]}" -gt 0 ]]; then
+  if [[ -f "$MONITOR_SIG_FILE" && -f "$TEMPLATE_SIG_FILE" && "$(cat "$MONITOR_SIG_FILE" 2>/dev/null)" == "$sig" && "$(cat "$TEMPLATE_SIG_FILE" 2>/dev/null)" == "$tmpl_sig" && "${#CONKY_RENDERED_CONFIGS[@]}" -gt 0 ]]; then
     return 0
   fi
 
   mkdir -p "$CONKY_LAYOUT_DIR"
   printf '%s\n' "$sig" >"$MONITOR_SIG_FILE"
+  printf '%s\n' "$tmpl_sig" >"$TEMPLATE_SIG_FILE"
   rm -rf "$CONKY_LAYOUT_DIR"/*
   CONKY_RENDERED_CONFIGS=()
 
@@ -280,7 +299,9 @@ refresh_conky_layouts() {
 
   local current_sig
   current_sig="$(monitor_signature)"
-  if [[ -f "$MONITOR_SIG_FILE" && "$(cat "$MONITOR_SIG_FILE" 2>/dev/null)" == "$current_sig" && "${#CONKY_RENDERED_CONFIGS[@]}" -gt 0 ]]; then
+  local current_tmpl_sig
+  current_tmpl_sig="$(template_signature)"
+  if [[ -f "$MONITOR_SIG_FILE" && -f "$TEMPLATE_SIG_FILE" && "$(cat "$MONITOR_SIG_FILE" 2>/dev/null)" == "$current_sig" && "$(cat "$TEMPLATE_SIG_FILE" 2>/dev/null)" == "$current_tmpl_sig" && "${#CONKY_RENDERED_CONFIGS[@]}" -gt 0 ]]; then
     return 0
   fi
 

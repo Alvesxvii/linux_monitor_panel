@@ -42,5 +42,5 @@ use_spacer none
 lua_load ~/.kbase/conky_orange.lua
 lua_draw_hook_post main
 TEXT
-${goto 5}${font Impact:size=10,:normal}${color2}${color1}Linux ${color2}Kodachi
-${goto 5}${font Impact:size=10,:normal}${color2}${color2}Simplifying ${color1}Anonymity
+${goto 5}${font Impact:size=10,:normal}${color2}${color1}Linux ${color2}Ubuntu
+${goto 5}${font Impact:size=10,:normal}${color2}${color2}@alvesxvii
