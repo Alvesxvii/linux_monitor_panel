@@ -90,13 +90,13 @@ ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color1}3. ${top name 3}${a
 ${goto 5}${loadgraph 10,220 666666 666666}
 ${color5}${stippled_hr}${font}${voffset -0}
 ${voffset 10}
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}MEM ${color1}${exec free | awk '/Mem/{printf("%.2f%"), $3/$2*100} /buffers\/cache/{printf(", buffers: %.2f%"), $3/$2*100}' }${color1}${alignr}${exec cat /home/alves/.kbase/Memused}
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}MEMÓRIA ${color1}${exec free | awk '/Mem/{printf("%.2f%"), $3/$2*100} /buffers\/cache/{printf(", buffers: %.2f%"), $3/$2*100}' }${color1}${alignr}${exec cat /home/alves/.kbase/Memused}
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color1}1. ${top_mem name 1}${alignr}${top_mem mem 1}%
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color1}2. ${top_mem name 2}${alignr}${top_mem mem 2}%
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color1}3. ${top_mem name 3}${alignr}${top_mem mem 3}%
 ${color5}${stippled_hr}${font}${voffset -0}
 ${voffset 10}
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}DISKS
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}DISCOS
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color1}1. used:${alignr}${fs_used /home}${color2} /home
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color1}2. used:${alignr}${fs_used /}${color2} /
 ${goto 5}${diskiograph 10,220 666666 666666}#${voffset -40}

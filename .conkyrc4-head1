@@ -40,17 +40,17 @@ alignment top_left
 override_utf8_locale yes
 use_spacer none
 TEXT
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}Kodachi status:${alignr}${color1}${font Liberation Sans Narrow:size=10:bold}${exec cat /home/alves/.kbase/BandSatus |xargs}
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}BTC donations:${alignr}${color1}${exec cat /home/alves/.kbase/btcdonation |xargs}
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Version: ${color1}${exec cat /home/alves/.kbase/Globalconfig|grep "Kodachi_version"|cut -d = -f 2|cut -d ';' -f 1|xargs}${alignr}${color3}Latest: ${color1}${exec cat /home/alves/.kbase/version|xargs|tr -d " \t\n\r"}${color red}${exec cat /home/alves/.kbase/newversionalert|xargs|tr -d " \t\n\r"}
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}OS boot mode: ${color1}${exec cat /home/alves/.kbase/boottype}${alignr}${color3}OS live: ${color1}${exec cat /home/alves/.kbase/persistent}
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}OS encrypted: ${color1}${exec cat /home/alves/.kbase/hddencrypted|xargs}${alignr}${color3}OS nuked: ${color1}${exec cat /home/alves/.kbase/nuked|xargs}
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}VPN firewall: ${color1}${exec cat /home/alves/.kbase/vpnufwstatus|xargs}${alignr}${color3}IPv6: ${alignr}${color1}${exec cat /home/alves/.kbase/ipv6status|xargs}
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}OS autologin: ${color1}${exec cat /home/alves/.kbase/autologinstatus|xargs}${alignr}${color3}Printer cups: ${color1}${exec cat /home/alves/.kbase/cupsstatus|xargs}
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Swap encrypted: ${color1}${exec cat /home/alves/.kbase/swapcrypt|xargs}${alignr}${color3}${alignr}${color3}Total swaps: ${color1}${exec cat /home/alves/.kbase/totalswaps|xargs}
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Auto screen font adjustment:${alignr}${color1}${exec cat /home/alves/.kbase/forcefonts}
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}Refresh status:${alignr}${color1}${font Liberation Sans Narrow:size=10:bold}${exec cat /home/alves/.kbase/healthsactionstatus |xargs}
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}Status do Kodachi:${alignr}${color1}${font Liberation Sans Narrow:size=10:bold}${exec cat /home/alves/.kbase/BandSatus |xargs}
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}Doações BTC:${alignr}${color1}${exec cat /home/alves/.kbase/btcdonation |xargs}
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Versão: ${color1}${exec cat /home/alves/.kbase/Globalconfig|grep "Kodachi_version"|cut -d = -f 2|cut -d ';' -f 1|xargs}${alignr}${color3}Última: ${color1}${exec cat /home/alves/.kbase/version|xargs|tr -d " \t\n\r"}${color red}${exec cat /home/alves/.kbase/newversionalert|xargs|tr -d " \t\n\r"}
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Modo de boot do SO: ${color1}${exec cat /home/alves/.kbase/boottype}${alignr}${color3}SO live: ${color1}${exec cat /home/alves/.kbase/persistent}
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}SO criptografado: ${color1}${exec cat /home/alves/.kbase/hddencrypted|xargs}${alignr}${color3}SO nuked: ${color1}${exec cat /home/alves/.kbase/nuked|xargs}
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}VPN Firewall: ${color1}${exec cat /home/alves/.kbase/vpnufwstatus|xargs}${alignr}${color3}IPv6: ${alignr}${color1}${exec cat /home/alves/.kbase/ipv6status|xargs}
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Autologin do SO: ${color1}${exec cat /home/alves/.kbase/autologinstatus|xargs}${alignr}${color3}CUPS da impressora: ${color1}${exec cat /home/alves/.kbase/cupsstatus|xargs}
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Swap criptografado: ${color1}${exec cat /home/alves/.kbase/swapcrypt|xargs}${alignr}${color3}${alignr}${color3}Total de swaps: ${color1}${exec cat /home/alves/.kbase/totalswaps|xargs}
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Ajuste automático da fonte da tela:${alignr}${color1}${exec cat /home/alves/.kbase/forcefonts}
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}Status de atualização:${alignr}${color1}${font Liberation Sans Narrow:size=10:bold}${exec cat /home/alves/.kbase/healthsactionstatus |xargs}
 ${color5}${stippled_hr}${font}${voffset -0}
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Security score: ${alignr}${color1}${exec cat /home/alves/.kbase/securityscore|xargs}/100
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Your model:${alignr}${color1}${exec cat /home/alves/.kbase/securitymodel|xargs}
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Best model:${alignr}${color1}ISP->VPN->Torify->TorDNS
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Pontuação de segurança: ${alignr}${color1}${exec cat /home/alves/.kbase/securityscore|xargs}/100
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Seu modelo:${alignr}${color1}${exec cat /home/alves/.kbase/securitymodel|xargs}
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Melhor modelo:${alignr}${color1}ISP->VPN->Torify->TorDNS
