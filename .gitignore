@@ -1,8 +1,10 @@
 # Runtime and logs
 conky-runtime/
+conky-manual-layout/
 lmpanel.log
 monitor-signature
 template-signature
+manual-layout.tsv
 home/
 usr/
 

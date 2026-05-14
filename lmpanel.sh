@@ -9,6 +9,7 @@ CONKY_BIN="$HOME/.local/bin/conky"
 CONKY_LAYOUT_DIR="$BASE/conky-runtime"
 EDIT_LAYOUT_DIR="$BASE/conky-edit-runtime"
 MANUAL_LAYOUT_DIR="$BASE/conky-manual-layout"
+MANUAL_GEOM_FILE="$BASE/manual-layout.tsv"
 MONITOR_SIG_FILE="$BASE/monitor-signature"
 TEMPLATE_SIG_FILE="$BASE/template-signature"
 MANUAL_LAYOUT_SIG_FILE="$BASE/manual-layout-signature"
@@ -74,15 +75,12 @@ template_signature() {
 }
 
 manual_layout_signature() {
-  if [[ ! -d "$MANUAL_LAYOUT_DIR" ]]; then
+  if [[ ! -f "$MANUAL_GEOM_FILE" ]]; then
     printf 'no-manual-layout\n'
     return 0
   fi
 
-  find "$MANUAL_LAYOUT_DIR" -type f -name '.conkyrc*' -print0 2>/dev/null \
-    | xargs -0r sha256sum 2>/dev/null \
-    | sha256sum \
-    | awk '{print $1}'
+  sha256sum "$MANUAL_GEOM_FILE" 2>/dev/null | awk '{print $1}'
 }
 
 monitor_specs() {
@@ -119,23 +117,27 @@ render_conky_config() {
   local head="$5"
   local alignment="${6:-top_left}"
   local window_type="${7:-desktop}"
+  local window_hints="${8:-}"
   local title
 
   mkdir -p "$(dirname "$dst")"
   cp "$src" "$dst"
   title="$(window_title_for_path "$dst")"
-  perl -0pi -e "s/^gap_x\\s+\\d+/gap_x $gap_x/m; s/^gap_y\\s+\\d+/gap_y $gap_y/m; s/^xinerama_head\\s+\\d+/xinerama_head $head/m; s/^alignment\\s+\\S+/alignment $alignment/m; s/^own_window_type\\s+\\S+/own_window_type $window_type/m; s/^own_window_colour\\s+black/own_window_colour black\\nown_window_title $title/m; s/^own_window_title\\s+.+$/own_window_title $title/m" "$dst"
+  perl -0pi -e "s/^gap_x\\s+\\d+/gap_x $gap_x/m; s/^gap_y\\s+\\d+/gap_y $gap_y/m; s/^xinerama_head\\s+\\d+/xinerama_head $head/m; s/^alignment\\s+\\S+/alignment $alignment/m; s/^own_window_type\\s+\\S+/own_window_type $window_type/m; s/^own_window_hints\\s+.+\$/own_window_hints $window_hints/m if length(q{$window_hints}); s/^own_window_colour\\s+black/own_window_colour black\\nown_window_title $title/m; s/^own_window_title\\s+.+$/own_window_title $title/m" "$dst"
 }
 
 build_conky_layouts() {
   local specs monitor_count idx name width height origin_x origin_y sig monitor_dir layout_mode tmpl_sig manual_sig window_type
+  local window_hints
   sig="$(monitor_signature)"
   monitor_count="$(connected_monitor_count)"
   tmpl_sig="$(template_signature)"
   layout_mode="$(cat "$LAYOUT_MODE_FILE" 2>/dev/null || printf 'auto')"
   window_type="desktop"
+  window_hints="undecorated,below,sticky,skip_taskbar,skip_pager"
   if [[ "$layout_mode" == "edit" ]]; then
     window_type="normal"
+    window_hints="skip_taskbar,skip_pager"
   fi
 
   if [[ "$layout_mode" == "manual" ]]; then
@@ -148,25 +150,24 @@ build_conky_layouts() {
     rm -rf "$CONKY_LAYOUT_DIR"/*
     CONKY_RENDERED_CONFIGS=()
 
-    if [[ ! -d "$MANUAL_LAYOUT_DIR" ]]; then
+    if [[ ! -f "$MANUAL_GEOM_FILE" ]]; then
       log "manual layout mode requested but no manual layouts exist."
       return 0
     fi
 
-    while IFS= read -r -d '' cfg; do
-      local rel
-      rel="${cfg#"$MANUAL_LAYOUT_DIR"/}"
+    while IFS=$'\t' read -r rel x y head source; do
+      [[ -n "${rel:-}" ]] || continue
       mkdir -p "$CONKY_LAYOUT_DIR/$(dirname "$rel")"
-      cp "$cfg" "$CONKY_LAYOUT_DIR/$rel"
+      render_conky_config "$source" "$CONKY_LAYOUT_DIR/$rel" "$x" "$y" "$head" top_left "$window_type" "$window_hints"
       CONKY_RENDERED_CONFIGS+=("$CONKY_LAYOUT_DIR/$rel")
-    done < <(find "$MANUAL_LAYOUT_DIR" -type f -name '.conkyrc*' -print0 | sort -z)
+    done <"$MANUAL_GEOM_FILE"
 
     printf '%s\n' "$manual_sig" >"$MANUAL_LAYOUT_SIG_FILE"
     log "rendered manual conky layout."
     return 0
   fi
 
-  if [[ -f "$MONITOR_SIG_FILE" && -f "$TEMPLATE_SIG_FILE" && "$(cat "$MONITOR_SIG_FILE" 2>/dev/null)" == "$sig" && "$(cat "$TEMPLATE_SIG_FILE" 2>/dev/null)" == "$tmpl_sig" && "${#CONKY_RENDERED_CONFIGS[@]}" -gt 0 ]]; then
+  if [[ "$layout_mode" == "auto" && -f "$MONITOR_SIG_FILE" && -f "$TEMPLATE_SIG_FILE" && "$(cat "$MONITOR_SIG_FILE" 2>/dev/null)" == "$sig" && "$(cat "$TEMPLATE_SIG_FILE" 2>/dev/null)" == "$tmpl_sig" && "${#CONKY_RENDERED_CONFIGS[@]}" -gt 0 ]]; then
     return 0
   fi
 
@@ -188,17 +189,17 @@ build_conky_layouts() {
     mkdir -p "$monitor_dir"
 
     if [[ "$idx" -eq 0 ]]; then
-      render_conky_config "$BASE/.conkyrc0" "$monitor_dir/.conkyrc0" "$(calc_pct "$width" 0.345)" "$(calc_pct "$height" 0.075)" 0 top_left "$window_type"
-      render_conky_config "$BASE/.conkyrc1" "$monitor_dir/.conkyrc1" "$(calc_pct "$width" 0.482)" "$(calc_pct "$height" 0.446)" 0 top_left "$window_type"
-      render_conky_config "$BASE/.conkyrc2" "$monitor_dir/.conkyrc2" "$(calc_pct "$width" 0.555)" "$(calc_pct "$height" 0.075)" 0 top_left "$window_type"
-      render_conky_config "$BASE/.conkyrc3" "$monitor_dir/.conkyrc3" "$(calc_pct "$width" 0.735)" "$(calc_pct "$height" 0.075)" 0 top_left "$window_type"
+      render_conky_config "$BASE/.conkyrc0" "$monitor_dir/.conkyrc0" "$(calc_pct "$width" 0.345)" "$(calc_pct "$height" 0.075)" 0 top_left "$window_type" "$window_hints"
+      render_conky_config "$BASE/.conkyrc1" "$monitor_dir/.conkyrc1" "$(calc_pct "$width" 0.482)" "$(calc_pct "$height" 0.446)" 0 top_left "$window_type" "$window_hints"
+      render_conky_config "$BASE/.conkyrc2" "$monitor_dir/.conkyrc2" "$(calc_pct "$width" 0.555)" "$(calc_pct "$height" 0.075)" 0 top_left "$window_type" "$window_hints"
+      render_conky_config "$BASE/.conkyrc3" "$monitor_dir/.conkyrc3" "$(calc_pct "$width" 0.735)" "$(calc_pct "$height" 0.075)" 0 top_left "$window_type" "$window_hints"
       CONKY_RENDERED_CONFIGS+=("$monitor_dir/.conkyrc0" "$monitor_dir/.conkyrc1" "$monitor_dir/.conkyrc2" "$monitor_dir/.conkyrc3")
     else
-      render_conky_config "$BASE/.conkyrc0-head1" "$monitor_dir/.conkyrc0" "$(calc_pct "$width" 0.547)" "$(calc_pct "$height" 0.055)" "$idx" top_left "$window_type"
-      render_conky_config "$BASE/.conkyrc1-head1" "$monitor_dir/.conkyrc1" "$(calc_pct "$width" 0.682)" "$(calc_pct "$height" 0.055)" "$idx" top_left "$window_type"
-      render_conky_config "$BASE/.conkyrc2-head1" "$monitor_dir/.conkyrc2" "$(calc_pct "$width" 0.547)" "$(calc_pct "$height" 0.31)" "$idx" top_left "$window_type"
-      render_conky_config "$BASE/.conkyrc3-head1" "$monitor_dir/.conkyrc3" "$(calc_pct "$width" 0.82)" "$(calc_pct "$height" 0.055)" "$idx" top_left "$window_type"
-      render_conky_config "$BASE/.conkyrc4-head1" "$monitor_dir/.conkyrc4" "$(calc_pct "$width" 0.547)" "$(calc_pct "$height" 0.62)" "$idx" top_left "$window_type"
+      render_conky_config "$BASE/.conkyrc0-head1" "$monitor_dir/.conkyrc0" "$(calc_pct "$width" 0.547)" "$(calc_pct "$height" 0.055)" "$idx" top_left "$window_type" "$window_hints"
+      render_conky_config "$BASE/.conkyrc1-head1" "$monitor_dir/.conkyrc1" "$(calc_pct "$width" 0.682)" "$(calc_pct "$height" 0.055)" "$idx" top_left "$window_type" "$window_hints"
+      render_conky_config "$BASE/.conkyrc2-head1" "$monitor_dir/.conkyrc2" "$(calc_pct "$width" 0.547)" "$(calc_pct "$height" 0.31)" "$idx" top_left "$window_type" "$window_hints"
+      render_conky_config "$BASE/.conkyrc3-head1" "$monitor_dir/.conkyrc3" "$(calc_pct "$width" 0.82)" "$(calc_pct "$height" 0.055)" "$idx" top_left "$window_type" "$window_hints"
+      render_conky_config "$BASE/.conkyrc4-head1" "$monitor_dir/.conkyrc4" "$(calc_pct "$width" 0.547)" "$(calc_pct "$height" 0.62)" "$idx" top_left "$window_type" "$window_hints"
       CONKY_RENDERED_CONFIGS+=("$monitor_dir/.conkyrc0" "$monitor_dir/.conkyrc1" "$monitor_dir/.conkyrc2" "$monitor_dir/.conkyrc3" "$monitor_dir/.conkyrc4")
     fi
   done
@@ -392,8 +393,18 @@ daemon_loop() {
 }
 
 save_current_layouts() {
-  local geom_table cfg rel title geom x y
+  local source dest rel title geom x y
   declare -A geom_by_title=()
+  declare -A monitor_origin_x=()
+  declare -A monitor_origin_y=()
+
+  local idx name width height origin_x origin_y
+  mapfile -t specs < <(monitor_specs)
+  for idx in "${!specs[@]}"; do
+    read -r name width height origin_x origin_y <<<"${specs[$idx]}"
+    monitor_origin_x["$idx"]="$origin_x"
+    monitor_origin_y["$idx"]="$origin_y"
+  done
 
   while IFS=$'\t' read -r title x y; do
     geom_by_title["$title"]="$x $y"
@@ -401,28 +412,46 @@ save_current_layouts() {
     python3 - <<'PY'
 import re, subprocess
 tree = subprocess.check_output(["xwininfo", "-root", "-tree"], text=True, stderr=subprocess.DEVNULL)
-    pattern = re.compile(r'"(?P<title>lmpanel-[^"]+)".*?(?P<w>\d+)x(?P<h>\d+)\+(?P<x>-?\d+)\+(?P<y>-?\d+)')
+pattern = re.compile(
+    r'"(?P<title>lmpanel-[^"]+)".*?'
+    r'(?P<w>\d+)x(?P<h>\d+)\+(?P<relx>-?\d+)\+(?P<rely>-?\d+)\s+\+'
+    r'(?P<x>-?\d+)\+(?P<y>-?\d+)$',
+    re.M,
+)
 for m in pattern.finditer(tree):
     print(f"{m.group('title')}\t{m.group('x')}\t{m.group('y')}")
 PY
   )
 
-  rm -rf "$MANUAL_LAYOUT_DIR"
-  mkdir -p "$MANUAL_LAYOUT_DIR"
+  : >"$MANUAL_GEOM_FILE"
 
-  while IFS= read -r -d '' cfg; do
-    rel="${cfg#"$CONKY_LAYOUT_DIR"/}"
-    title="$(window_title_for_path "$cfg")"
+  local entries=(
+    "head0/.conkyrc0:$BASE/.conkyrc0:0"
+    "head0/.conkyrc1:$BASE/.conkyrc1:0"
+    "head0/.conkyrc2:$BASE/.conkyrc2:0"
+    "head0/.conkyrc3:$BASE/.conkyrc3:0"
+    "head1/.conkyrc0:$BASE/.conkyrc0-head1:1"
+    "head1/.conkyrc1:$BASE/.conkyrc1-head1:1"
+    "head1/.conkyrc2:$BASE/.conkyrc2-head1:1"
+    "head1/.conkyrc3:$BASE/.conkyrc3-head1:1"
+    "head1/.conkyrc4:$BASE/.conkyrc4-head1:1"
+  )
+
+  local entry spec_parts runtime_path head
+  for entry in "${entries[@]}"; do
+    IFS=':' read -r rel source head <<<"$entry"
+    dest="$MANUAL_LAYOUT_DIR/$rel"
+    title="$(window_title_for_path "$dest")"
     geom="${geom_by_title[$title]:-}"
     if [[ -z "$geom" ]]; then
       log "could not find window for $title"
       continue
     fi
     read -r x y <<<"$geom"
-    perl -0pi -e "s/^gap_x\\s+\\d+/gap_x $x/m; s/^gap_y\\s+\\d+/gap_y $y/m; s/^xinerama_head\\s+\\d+/xinerama_head 0/m; s/^alignment\\s+\\S+/alignment top_left/m; s/^own_window_type\\s+\\S+/own_window_type desktop/m; s/^own_window_title\\s+.+$/own_window_title $title/m" "$cfg"
-    mkdir -p "$MANUAL_LAYOUT_DIR/$(dirname "$rel")"
-    cp "$cfg" "$MANUAL_LAYOUT_DIR/$rel"
-  done < <(find "$CONKY_LAYOUT_DIR" -type f -name '.conkyrc*' -print0 | sort -z)
+    x=$((x - ${monitor_origin_x[$head]:-0}))
+    y=$((y - ${monitor_origin_y[$head]:-0}))
+    printf '%s\t%s\t%s\t%s\t%s\n' "$rel" "$x" "$y" "$head" "$source" >>"$MANUAL_GEOM_FILE"
+  done
 
   manual_layout_signature >"$MANUAL_LAYOUT_SIG_FILE"
   printf 'manual\n' >"$LAYOUT_MODE_FILE"
@@ -444,14 +473,22 @@ edit_loop() {
 }
 
 save_layout_mode() {
+  local edit_pid
   save_current_layouts
+  edit_pid="$(cat "$EDIT_PID_FILE" 2>/dev/null || true)"
   rm -f "$EDIT_PID_FILE"
+  if [[ -n "${edit_pid:-}" ]]; then
+    kill "$edit_pid" >/dev/null 2>&1 || true
+  fi
+  pkill -f "$CONKY_LAYOUT_DIR" >/dev/null 2>&1 || true
+  pkill -f "$BASE/.conkyrc[0-4]" >/dev/null 2>&1 || true
   systemctl --user daemon-reload >/dev/null 2>&1 || true
   systemctl --user restart lmpanel.service >/dev/null 2>&1 || systemctl --user start lmpanel.service >/dev/null 2>&1 || true
 }
 
 auto_layout_mode() {
   rm -rf "$MANUAL_LAYOUT_DIR"
+  rm -f "$MANUAL_GEOM_FILE"
   rm -f "$MANUAL_LAYOUT_SIG_FILE" "$EDIT_PID_FILE"
   printf 'auto\n' >"$LAYOUT_MODE_FILE"
   systemctl --user daemon-reload >/dev/null 2>&1 || true

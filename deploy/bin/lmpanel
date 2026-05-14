@@ -10,7 +10,14 @@ fi
 
 case "${1:-}" in
   edit|save|auto)
-    exec "$panel_script" "--${1}-layout"
+    case "$1" in
+      edit)
+        nohup "$panel_script" --edit >/dev/null 2>&1 &
+        disown 2>/dev/null || true
+        ;;
+      save) exec "$panel_script" --save-layout ;;
+      auto) exec "$panel_script" --auto-layout ;;
+    esac
     ;;
   help|-h|--help|"")
     cat <<'EOF'
@@ -18,6 +25,7 @@ Usage:
   lmpanel edit   # enter manual edit mode and drag the panels
   lmpanel save   # save the current panel positions
   lmpanel auto   # return to automatic monitor-based layout
+  lmpanel        # show this help
 EOF
     ;;
   *)
