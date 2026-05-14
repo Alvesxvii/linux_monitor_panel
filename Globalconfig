@@ -1,0 +1,4 @@
+#!/bin/bash
+Kodachi_version=custom;
+Myhome_path="/home/alves";
+Mykodachi_path="/home/alves/.kbase";

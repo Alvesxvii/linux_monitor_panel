@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Kodachi Desktop Overlay
+Comment=Kodachi-style desktop information overlay
+Exec=/bin/sh -lc 'systemctl --user import-environment DISPLAY WAYLAND_DISPLAY XAUTHORITY DBUS_SESSION_BUS_ADDRESS; systemctl --user start kodachi-look.service'
+Terminal=false
+StartupNotify=false
+X-GNOME-Autostart-enabled=true
+OnlyShowIn=GNOME;XFCE;MATE;Cinnamon;Unity;Budgie;
+

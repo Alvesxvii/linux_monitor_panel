@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+local_conky="$HOME/.local/bin/usr/bin/conky"
+if [[ -x "$local_conky" ]]; then
+  LD_LIBRARY_PATH="$HOME/.local/lib/kodachi/lib/x86_64-linux-gnu:$HOME/.local/lib/kodachi/usr/lib/x86_64-linux-gnu:$HOME/.local/lib/kodachi/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+    exec "$local_conky" "$@"
+fi
+
+exec conky "$@"
