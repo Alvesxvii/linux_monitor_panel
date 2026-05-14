@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+panel_script="$HOME/.lmpanel/lmpanel.sh"
+
+if [[ ! -x "$panel_script" ]]; then
+  echo "lmpanel: missing panel script at $panel_script" >&2
+  exit 1
+fi
+
+case "${1:-}" in
+  edit|save|auto)
+    exec "$panel_script" "--${1}-layout"
+    ;;
+  help|-h|--help|"")
+    cat <<'EOF'
+Usage:
+  lmpanel edit   # enter manual edit mode and drag the panels
+  lmpanel save   # save the current panel positions
+  lmpanel auto   # return to automatic monitor-based layout
+EOF
+    ;;
+  *)
+    echo "lmpanel: unknown command: $1" >&2
+    echo "Try: lmpanel --help" >&2
+    exit 1
+    ;;
+esac

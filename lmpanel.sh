@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BASE="$HOME/.kbase"
-BG_DIR="$HOME/.local/share/backgrounds/kodachi"
+BASE="$HOME/.lmpanel"
+BG_DIR="$HOME/.local/share/backgrounds/lmpanel"
 WALLPAPER="$BG_DIR/243811.png"
-LOG_FILE="$BASE/kodachi-look.log"
+LOG_FILE="$BASE/lmpanel.log"
 CONKY_BIN="$HOME/.local/bin/conky"
 CONKY_LAYOUT_DIR="$BASE/conky-runtime"
 EDIT_LAYOUT_DIR="$BASE/conky-edit-runtime"
@@ -108,7 +108,7 @@ window_title_for_path() {
   parent="$(basename "$(dirname "$path")")"
   base="$(basename "$path")"
   base="${base#.}"
-  printf 'kodachi-%s-%s' "$parent" "$base"
+  printf 'lmpanel-%s-%s' "$parent" "$base"
 }
 
 render_conky_config() {
@@ -341,7 +341,7 @@ update_snapshot() {
   write_file "$BASE/HWID" "$hwid"
   write_file "$BASE/Memused" "${mem_used:-N/A}"
   write_file "$BASE/openfiles" "${openfiles:-0}"
-  write_file "$BASE/Globalconfig" $'#!/bin/bash\nKodachi_version=custom;\nMyhome_path="${HOME}";\nMykodachi_path="${HOME}/.kbase";'
+  write_file "$BASE/Globalconfig" $'#!/bin/bash\nLmpanel_version=custom;\nMyhome_path="${HOME}";\nMylmpanel_path="${HOME}/.lmpanel";'
   write_file "$BASE/dns/autodnscrypt" "0"
   write_file "$BASE/dns/dns1" "${dns1:-1.1.1.1}"
   write_file "$BASE/dns/dns4" "${dns2:-1.0.0.1}"
@@ -401,7 +401,7 @@ save_current_layouts() {
     python3 - <<'PY'
 import re, subprocess
 tree = subprocess.check_output(["xwininfo", "-root", "-tree"], text=True, stderr=subprocess.DEVNULL)
-pattern = re.compile(r'"(?P<title>kodachi-[^"]+)".*?(?P<w>\d+)x(?P<h>\d+)\+(?P<x>-?\d+)\+(?P<y>-?\d+)')
+    pattern = re.compile(r'"(?P<title>lmpanel-[^"]+)".*?(?P<w>\d+)x(?P<h>\d+)\+(?P<x>-?\d+)\+(?P<y>-?\d+)')
 for m in pattern.finditer(tree):
     print(f"{m.group('title')}\t{m.group('x')}\t{m.group('y')}")
 PY
@@ -432,7 +432,7 @@ PY
 edit_loop() {
   printf '%s\n' "$$" >"$EDIT_PID_FILE"
   printf 'edit\n' >"$LAYOUT_MODE_FILE"
-  systemctl --user stop kodachi-look.service >/dev/null 2>&1 || true
+  systemctl --user stop lmpanel.service >/dev/null 2>&1 || true
   update_snapshot || true
   set_wallpaper
   build_conky_layouts
@@ -447,7 +447,7 @@ save_layout_mode() {
   save_current_layouts
   rm -f "$EDIT_PID_FILE"
   systemctl --user daemon-reload >/dev/null 2>&1 || true
-  systemctl --user restart kodachi-look.service >/dev/null 2>&1 || systemctl --user start kodachi-look.service >/dev/null 2>&1 || true
+  systemctl --user restart lmpanel.service >/dev/null 2>&1 || systemctl --user start lmpanel.service >/dev/null 2>&1 || true
 }
 
 auto_layout_mode() {
@@ -455,7 +455,7 @@ auto_layout_mode() {
   rm -f "$MANUAL_LAYOUT_SIG_FILE" "$EDIT_PID_FILE"
   printf 'auto\n' >"$LAYOUT_MODE_FILE"
   systemctl --user daemon-reload >/dev/null 2>&1 || true
-  systemctl --user restart kodachi-look.service >/dev/null 2>&1 || systemctl --user start kodachi-look.service >/dev/null 2>&1 || true
+  systemctl --user restart lmpanel.service >/dev/null 2>&1 || systemctl --user start lmpanel.service >/dev/null 2>&1 || true
 }
 
 ensure_daemon_running() {

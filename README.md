@@ -1,9 +1,9 @@
 # Overlay
 
-This repository contains the desktop overlay setup extracted from the Kodachi look-and-feel rebuild.
+This repository contains the Linux Monitor Panel desktop overlay setup stored in `~/.lmpanel`.
 
 Tracked assets:
-- `kodachi-look.sh` orchestration script
+- `lmpanel.sh` orchestration script
 - `*.conkyrc*` templates
 - `conky_orange.lua`
 - static wallpaper and icon assets
@@ -11,11 +11,13 @@ Tracked assets:
 
 Generated at runtime and intentionally ignored:
 - `conky-runtime/`
-- `kodachi-look.log`
+- `lmpanel.log`
 - `monitor-signature`
 - status files such as `btcprice`, `xmrprice`, `netCurrentStatus`, and the `.eeds-*` files
 
 Quick control:
-- `systemctl --user restart kodachi-look.service`
-- `systemctl --user status kodachi-look.service`
-
+- `systemctl --user restart lmpanel.service`
+- `systemctl --user status lmpanel.service`
+- `lmpanel edit`
+- `lmpanel save`
+- `lmpanel auto`

@@ -1,4 +1,4 @@
 #!/bin/bash
-Kodachi_version=custom;
+Lmpanel_version=custom;
 Myhome_path="${HOME}";
-Mykodachi_path="${HOME}/.kbase";
+Mylmpanel_path="${HOME}/.lmpanel";
