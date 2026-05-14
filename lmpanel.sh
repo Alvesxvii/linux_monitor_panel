@@ -67,11 +67,6 @@ template_signature() {
     "$BASE/.conkyrc1" \
     "$BASE/.conkyrc2" \
     "$BASE/.conkyrc3" \
-    "$BASE/.conkyrc4-head1" \
-    "$BASE/.conkyrc0-head1" \
-    "$BASE/.conkyrc1-head1" \
-    "$BASE/.conkyrc2-head1" \
-    "$BASE/.conkyrc3-head1" \
     "$BASE/conky_orange.lua" \
     2>/dev/null | sha256sum | awk '{print $1}'
 }
@@ -218,11 +213,10 @@ PY
     "head0/.conkyrc1:$BASE/.conkyrc1:0"
     "head0/.conkyrc2:$BASE/.conkyrc2:0"
     "head0/.conkyrc3:$BASE/.conkyrc3:0"
-    "head1/.conkyrc0:$BASE/.conkyrc0-head1:1"
-    "head1/.conkyrc1:$BASE/.conkyrc1-head1:1"
-    "head1/.conkyrc2:$BASE/.conkyrc2-head1:1"
-    "head1/.conkyrc3:$BASE/.conkyrc3-head1:1"
-    "head1/.conkyrc4:$BASE/.conkyrc4-head1:1"
+    "head1/.conkyrc0:$BASE/.conkyrc0:1"
+    "head1/.conkyrc1:$BASE/.conkyrc1:1"
+    "head1/.conkyrc2:$BASE/.conkyrc2:1"
+    "head1/.conkyrc3:$BASE/.conkyrc3:1"
   )
 
   local entry dest title
@@ -293,12 +287,11 @@ build_conky_layouts() {
       render_conky_config "$BASE/.conkyrc3" "$monitor_dir/.conkyrc3" "$(calc_pct "$width" 0.735)" "$(calc_pct "$height" 0.075)" 0 top_left "$window_type" "$window_hints"
       CONKY_RENDERED_CONFIGS+=("$monitor_dir/.conkyrc0" "$monitor_dir/.conkyrc1" "$monitor_dir/.conkyrc2" "$monitor_dir/.conkyrc3")
     else
-      render_conky_config "$BASE/.conkyrc0-head1" "$monitor_dir/.conkyrc0" "$(calc_pct "$width" 0.547)" "$(calc_pct "$height" 0.055)" "$idx" top_left "$window_type" "$window_hints"
-      render_conky_config "$BASE/.conkyrc1-head1" "$monitor_dir/.conkyrc1" "$(calc_pct "$width" 0.682)" "$(calc_pct "$height" 0.055)" "$idx" top_left "$window_type" "$window_hints"
-      render_conky_config "$BASE/.conkyrc2-head1" "$monitor_dir/.conkyrc2" "$(calc_pct "$width" 0.547)" "$(calc_pct "$height" 0.31)" "$idx" top_left "$window_type" "$window_hints"
-      render_conky_config "$BASE/.conkyrc3-head1" "$monitor_dir/.conkyrc3" "$(calc_pct "$width" 0.82)" "$(calc_pct "$height" 0.055)" "$idx" top_left "$window_type" "$window_hints"
-      render_conky_config "$BASE/.conkyrc4-head1" "$monitor_dir/.conkyrc4" "$(calc_pct "$width" 0.547)" "$(calc_pct "$height" 0.62)" "$idx" top_left "$window_type" "$window_hints"
-      CONKY_RENDERED_CONFIGS+=("$monitor_dir/.conkyrc0" "$monitor_dir/.conkyrc1" "$monitor_dir/.conkyrc2" "$monitor_dir/.conkyrc3" "$monitor_dir/.conkyrc4")
+      render_conky_config "$BASE/.conkyrc0" "$monitor_dir/.conkyrc0" "$(calc_pct "$width" 0.547)" "$(calc_pct "$height" 0.055)" "$idx" top_left "$window_type" "$window_hints"
+      render_conky_config "$BASE/.conkyrc1" "$monitor_dir/.conkyrc1" "$(calc_pct "$width" 0.682)" "$(calc_pct "$height" 0.055)" "$idx" top_left "$window_type" "$window_hints"
+      render_conky_config "$BASE/.conkyrc2" "$monitor_dir/.conkyrc2" "$(calc_pct "$width" 0.547)" "$(calc_pct "$height" 0.31)" "$idx" top_left "$window_type" "$window_hints"
+      render_conky_config "$BASE/.conkyrc3" "$monitor_dir/.conkyrc3" "$(calc_pct "$width" 0.82)" "$(calc_pct "$height" 0.055)" "$idx" top_left "$window_type" "$window_hints"
+      CONKY_RENDERED_CONFIGS+=("$monitor_dir/.conkyrc0" "$monitor_dir/.conkyrc1" "$monitor_dir/.conkyrc2" "$monitor_dir/.conkyrc3")
     fi
   done
 
