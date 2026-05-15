@@ -547,6 +547,17 @@ coingecko_prices() {
     2>/dev/null || true
 }
 
+tradingview_brazil_quotes() {
+  curl -fsS --max-time 15 \
+    -X POST \
+    -H 'Content-Type: application/json' \
+    -H 'Origin: https://www.tradingview.com' \
+    -H 'Referer: https://www.tradingview.com/' \
+    --data '{"symbols":{"tickers":["BMFBOVESPA:IBOV","BMFBOVESPA:MXRF11","BMFBOVESPA:AREA11"],"query":{"types":[]}},"columns":["close","change","change_abs","pricescale","name","description"]}' \
+    'https://scanner.tradingview.com/brazil/scan' \
+    2>/dev/null || true
+}
+
 format_usd_price() {
   local value="${1:-}"
   if [[ -z "$value" || "$value" == "N/A" ]]; then
@@ -589,6 +600,28 @@ print("R$ " + formatted)
 PY
 }
 
+format_index_points() {
+  local value="${1:-}"
+  if [[ -z "$value" || "$value" == "N/A" ]]; then
+    printf 'N/A\n'
+    return 0
+  fi
+
+  python3 - <<'PY' "$value"
+import sys
+from decimal import Decimal, InvalidOperation
+raw = sys.argv[1]
+try:
+    num = Decimal(raw)
+except InvalidOperation:
+    print("N/A")
+    raise SystemExit(0)
+formatted = f"{num:,.2f}"
+formatted = formatted.replace(",", "X").replace(".", ",").replace("X", ".")
+print(formatted)
+PY
+}
+
 format_percent_change() {
   local value="${1:-}"
   if [[ -z "$value" || "$value" == "N/A" ]]; then
@@ -622,6 +655,140 @@ format_percent_change_colorized() {
     -*) printf '${color FF3333}%s${color2}\n' "$formatted" ;;
     *) printf '%s\n' "$formatted" ;;
   esac
+}
+
+iface_rx_tx_bytes() {
+  local iface="${1:-}"
+  [[ -n "$iface" ]] || return 1
+  awk -v iface="$iface" '
+    $1 == iface":" {
+      print $2, $10;
+      exit
+    }
+  ' /proc/net/dev 2>/dev/null
+}
+
+format_bytes_per_second() {
+  local value="${1:-}"
+  if [[ -z "$value" || "$value" == "N/A" ]]; then
+    printf 'N/A\n'
+    return 0
+  fi
+
+  python3 - <<'PY' "$value"
+import sys
+from decimal import Decimal, InvalidOperation
+raw = sys.argv[1]
+try:
+    num = Decimal(raw)
+except InvalidOperation:
+    print("N/A")
+    raise SystemExit(0)
+units = ["B/s", "KiB/s", "MiB/s", "GiB/s", "TiB/s"]
+idx = 0
+while num >= 1024 and idx < len(units) - 1:
+    num /= 1024
+    idx += 1
+print(f"{num:.2f} {units[idx]}")
+PY
+}
+
+format_decimal_gb() {
+  local value="${1:-}"
+  if [[ -z "$value" || "$value" == "N/A" ]]; then
+    printf 'N/A\n'
+    return 0
+  fi
+
+  python3 - <<'PY' "$value"
+import sys
+from decimal import Decimal, InvalidOperation
+raw = sys.argv[1]
+try:
+    num = Decimal(raw) / Decimal(1000**3)
+except InvalidOperation:
+    print("N/A")
+    raise SystemExit(0)
+print(f"{num:.1f} GB")
+PY
+}
+
+update_traffic_average_snapshot() {
+  local iface now rx tx history tmp newest_ts newest_rx newest_tx oldest_ts oldest_rx oldest_tx elapsed down_bps up_bps
+  iface="$(default_iface)"
+  [[ -n "$iface" ]] || {
+    write_file "$BASE/trafficavgdown_display" "N/A"
+    write_file "$BASE/trafficavgup_display" "N/A"
+    return 0
+  }
+
+  read -r rx tx < <(iface_rx_tx_bytes "$iface" 2>/dev/null || printf 'N/A N/A')
+  if [[ -z "${rx:-}" || -z "${tx:-}" || "$rx" == "N/A" || "$tx" == "N/A" ]]; then
+    write_file "$BASE/trafficavgdown_display" "N/A"
+    write_file "$BASE/trafficavgup_display" "N/A"
+    return 0
+  fi
+
+  now="$(date +%s)"
+  history="$BASE/traffic-history.tsv"
+  tmp="$(mktemp)"
+  {
+    printf '%s\t%s\t%s\t%s\n' "$now" "$iface" "$rx" "$tx"
+    [[ -f "$history" ]] && cat "$history"
+  } | awk -F'\t' -v now="$now" -v window=600 '($1 ~ /^[0-9]+$/) && (now - $1) <= window { print }' >"$tmp"
+  mv "$tmp" "$history"
+
+  read -r newest_ts newest_rx newest_tx oldest_ts oldest_rx oldest_tx < <(
+    awk -F'\t' -v iface="$iface" '
+      $2 == iface {
+        if (!seen) {
+          newest_ts = $1
+          newest_rx = $3
+          newest_tx = $4
+          seen = 1
+        }
+        oldest_ts = $1
+        oldest_rx = $3
+        oldest_tx = $4
+      }
+      END {
+        if (seen) {
+          print newest_ts, newest_rx, newest_tx, oldest_ts, oldest_rx, oldest_tx
+        }
+      }
+    ' "$history"
+  )
+
+  if [[ -z "${newest_ts:-}" || -z "${oldest_ts:-}" ]]; then
+    write_file "$BASE/trafficavgdown_display" "N/A"
+    write_file "$BASE/trafficavgup_display" "N/A"
+    return 0
+  fi
+
+  elapsed=$((newest_ts - oldest_ts))
+  if (( elapsed <= 0 )); then
+    write_file "$BASE/trafficavgdown_display" "N/A"
+    write_file "$BASE/trafficavgup_display" "N/A"
+    return 0
+  fi
+
+  down_bps=$(( (newest_rx - oldest_rx) / elapsed ))
+  up_bps=$(( (newest_tx - oldest_tx) / elapsed ))
+  (( down_bps < 0 )) && down_bps=0
+  (( up_bps < 0 )) && up_bps=0
+
+  write_file "$BASE/trafficavgdown_display" "$(format_bytes_per_second "$down_bps")"
+  write_file "$BASE/trafficavgup_display" "$(format_bytes_per_second "$up_bps")"
+}
+
+update_ping_snapshot() {
+  local ping_target
+  if pgrep -x openvpn >/dev/null 2>&1 || pgrep -f 'openvpn --daemon --config' >/dev/null 2>&1; then
+    ping_target="9.9.9.9"
+  else
+    ping_target="8.8.8.8"
+  fi
+  write_file "$BASE/pingcurrent" "$(current_ping_ms "$ping_target")"
 }
 
 set_wallpaper_custom() {
@@ -687,13 +854,21 @@ apply_wallpaper_policy() {
 }
 
 update_snapshot() {
-  local iface gateway lip pip json btc_raw usdt_raw xno_raw btc usdt xno btcchg_raw usdtchg_raw xnochg_raw btcchg usdtchg xnochg dns1 dns2 mem_used mem_total openfiles hwid machine_id kernel boot_mode ipv6_state cups_state os_version_label
+  local iface gateway lip pip json b3json btc_raw usdt_raw xno_raw btc usdt xno btcchg_raw usdtchg_raw xnochg btcchg usdtchg xnochg
+  local ibov_raw mxrf11_raw area11_raw ibov mxrf11 area11 ibovchg_raw mxrf11chg_raw area11chg_raw ibovchg mxrf11chg area11chg
+  local dns1 dns2 mem_used mem_total openfiles hwid machine_id kernel boot_mode ipv6_state cups_state os_version_label
   local tor_status vpn_status public_state country
+  local root_source root_parent root_model root_size_bytes root_size_label
+  local root_total_bytes root_used_bytes root_avail_bytes
+  local root_total_display root_used_display root_avail_display
+  local home_used_bytes home_size_label
+  local query_time
 
   iface="$(default_iface)"
   gateway="$(default_gateway)"
   lip="$(local_ip_for_iface "$iface")"
   pip="$(public_ip)"
+  query_time="hoje às $(date '+%H:%Mh')"
   json="$(coingecko_prices)"
 
   read -r btc_raw usdt_raw < <(
@@ -712,6 +887,29 @@ update_snapshot() {
   usdtchg="$(format_percent_change "$usdtchg_raw")"
   xnochg="$(format_percent_change "$xnochg_raw")"
 
+  b3json="$(tradingview_brazil_quotes)"
+  read -r ibov_raw ibovchg_raw mxrf11_raw mxrf11chg_raw area11_raw area11chg_raw < <(
+    python3 -c 'import json,sys
+data=json.loads(sys.stdin.read() or "{}").get("data", [])
+symbols={}
+for item in data:
+    symbols[item.get("s")] = item.get("d") or []
+def get(symbol, idx):
+    values=symbols.get(symbol) or []
+    if idx >= len(values):
+        return "N/A"
+    value=values[idx]
+    return "N/A" if value in (None, "") else value
+print(get("BMFBOVESPA:IBOV", 0), get("BMFBOVESPA:IBOV", 1), get("BMFBOVESPA:MXRF11", 0), get("BMFBOVESPA:MXRF11", 1), get("BMFBOVESPA:AREA11", 0), get("BMFBOVESPA:AREA11", 1))' \
+      <<<"$b3json" 2>/dev/null || printf 'N/A N/A N/A N/A N/A N/A'
+  )
+  ibov="$(format_index_points "$ibov_raw")"
+  mxrf11="$(format_brl_price "$mxrf11_raw")"
+  area11="$(format_brl_price "$area11_raw")"
+  ibovchg="$(format_percent_change "$ibovchg_raw")"
+  mxrf11chg="$(format_percent_change "$mxrf11chg_raw")"
+  area11chg="$(format_percent_change "$area11chg_raw")"
+
   dns1="$(awk '/^nameserver/ {print $2; exit}' /etc/resolv.conf 2>/dev/null || true)"
   dns2="$(awk '/^nameserver/ {print $2; exit 1}' /etc/resolv.conf 2>/dev/null || true)"
 
@@ -721,6 +919,21 @@ update_snapshot() {
   kernel="$(uname -r)"
   hwid="$(printf '%s' "${machine_id}:${HOSTNAME:-$(hostname)}:${kernel}" | sha256sum | awk '{print substr($1,1,21)}')"
   os_version_label="$(. /etc/os-release 2>/dev/null; printf '%s' "${VERSION:-24.04.4 LTS}" | sed 's/ ([^)]*)$//')"
+  root_source="$(findmnt -n -o SOURCE / 2>/dev/null || true)"
+  root_parent="$(lsblk -no PKNAME "$root_source" 2>/dev/null | head -n1 || true)"
+  if [[ -n "$root_parent" ]]; then
+    root_model="$(lsblk -dn -o MODEL "/dev/$root_parent" 2>/dev/null | head -n1 | xargs)"
+    root_size_bytes="$(lsblk -dn -b -o SIZE "/dev/$root_parent" 2>/dev/null | head -n1 | tr -d ' ' || true)"
+    if [[ -n "$root_size_bytes" ]]; then
+      root_size_label="$(awk -v bytes="$root_size_bytes" 'BEGIN { printf "%.0fTB", bytes / 1000000000000 }')"
+    fi
+  fi
+  read -r root_total_bytes root_used_bytes root_avail_bytes < <(df -B1 / 2>/dev/null | awk 'NR==2 {print $2, $3, $4}')
+  home_used_bytes="$(du -sbx /home/alves 2>/dev/null | awk '{print $1}')"
+  root_total_display="$(format_decimal_gb "${root_total_bytes:-N/A}")"
+  root_used_display="$(format_decimal_gb "${root_used_bytes:-N/A}")"
+  root_avail_display="$(format_decimal_gb "${root_avail_bytes:-N/A}")"
+  home_size_label="$(format_decimal_gb "${home_used_bytes:-N/A}")"
 
   boot_mode="Installed"
   ipv6_state="Disabled"
@@ -741,6 +954,10 @@ update_snapshot() {
     pip="-"
     country="-"
   fi
+
+  update_ping_snapshot
+  update_traffic_average_snapshot
+  update_tcp_ports_snapshot
 
   if [[ -n "$iface" ]]; then
     write_file "$BASE/intfused" "$iface"
@@ -764,6 +981,16 @@ update_snapshot() {
   write_file "$BASE/netCurrentStatus" "$public_state"
   write_file "$BASE/iptypeletter" "${public_state}"
   write_file "$BASE/randomDomain" "api.coingecko.com"
+  write_file "$BASE/lastcryptoquery" "$query_time"
+  write_file "$BASE/lastb3query" "$query_time"
+  if [[ -n "$root_model" || -n "$root_size_label" ]]; then
+  write_file "$BASE/systemdiskinfo" "Ponto de montagem: ${root_model:-Disco} ${root_size_label:-1TB}"
+  else
+    write_file "$BASE/systemdiskinfo" "Ponto de montagem: Disco"
+  fi
+  write_file "$BASE/systemdisksummary" "1. used:${root_used_display:-N/A}"
+  write_file "$BASE/systemdiskfreelabel" "Total livre: ${root_avail_display:-N/A}"
+  write_file "$BASE/homeusedsize" "2. used:${home_size_label:-N/A}"
   write_file "$BASE/btcprice" "${btc:-N/A}"
   write_file "$BASE/usdtprice" "${usdt:-N/A}"
   write_file "$BASE/xnoprice" "${xno:-N/A}"
@@ -773,6 +1000,16 @@ update_snapshot() {
   write_file "$BASE/btcchange_display" "$(format_percent_change_colorized "${btcchg_raw:-N/A}")"
   write_file "$BASE/usdtchange_display" "$(format_percent_change_colorized "${usdtchg_raw:-N/A}")"
   write_file "$BASE/xnochange_display" "$(format_percent_change_colorized "${xnochg_raw:-N/A}")"
+  write_file "$BASE/ibovprice" "${ibov:-N/A}"
+  write_file "$BASE/mxrf11price" "${mxrf11:-N/A}"
+  write_file "$BASE/area11price" "${area11:-N/A}"
+  write_file "$BASE/ibovchange" "${ibovchg:-N/A}"
+  write_file "$BASE/mxrf11change" "${mxrf11chg:-N/A}"
+  write_file "$BASE/area11change" "${area11chg:-N/A}"
+  write_file "$BASE/ibovchange_display" "$(format_percent_change_colorized "${ibovchg_raw:-N/A}")"
+  write_file "$BASE/mxrf11change_display" "$(format_percent_change_colorized "${mxrf11chg_raw:-N/A}")"
+  write_file "$BASE/area11change_display" "$(format_percent_change_colorized "${area11chg_raw:-N/A}")"
+  write_file "$BASE/b3domain" "scanner.tradingview.com"
   write_file "$BASE/linuxversion" "$os_version_label"
   write_file "$BASE/btcdonation" "--"
   write_file "$BASE/BandSatus" "Custom overlay active"
@@ -845,6 +1082,9 @@ daemon_loop() {
       refresh_conky_layouts
       last_sig="$current_sig"
     fi
+
+    update_ping_snapshot || log "ping refresh failed; keeping previous value."
+    update_traffic_average_snapshot || log "traffic average refresh failed; keeping previous value."
 
     if (( tick % 150 == 0 )); then
       update_snapshot || log "snapshot refresh failed; keeping previous state."

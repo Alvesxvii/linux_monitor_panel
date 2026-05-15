@@ -18,7 +18,7 @@
 # Specific
 gap_x 220
 gap_y 30
-update_interval 10
+update_interval 1
 minimum_size 220 0
 maximum_width 360
 
@@ -94,7 +94,7 @@ ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}IP da VPN: ${color1
 #${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Country: ${color1}${alignr}${exec geoiplookup `cat /home/alves/.kbase/.eeds-ipinfo|cut -d : -f 1`|cut -d : -f 2|cut -d , -f 2|xargs }
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Porta: ${color1}${exec cat /home/alves/.kbase/vpnattributes|grep port|cut -d = -f 2|tr -d " \t\n\r"}${alignr}${color3}Protocolo: ${color1}${alignr}${exec cat /home/alves/.kbase/vpnattributes|grep protocolu|cut -d = -f 2|tr -d " \t\n\r"}
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Status:${color1}${alignr}${exec cat /home/alves/.kbase/.eeds-ipinfo|cut -d : -f 2|cut -d [ -f 2|cut -d ] -f 1|tr -d " \t\n\r"}
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Ping:${color1}${alignr}${exec fping -B 1.0 -t 1000 -i 1 -r 0 -e -c 1 -q 9.9.9.9 2>&1 | awk -F'/' '{print $8}'} ms
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Ping:${color1}${alignr}${exec cat /home/alves/.kbase/pingcurrent|xargs} ms
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Largura de banda:${color1}${alignr}${exec cat /home/alves/.kbase/tvpnbandwidth|tr -d " \t\n\r"} GB
 #${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Secure: ${color1}${alignr}Yes
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Perfil: ${color1}${alignr}${exec cat /home/alves/.kbase/vpnattributes|grep theProfile|cut -d = -f 2|xargs|tr -d " \t\n\r"}
@@ -104,7 +104,7 @@ $else
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}VPN:${alignr}${color1}${alignr}-
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}IP do ISP: ${color1}${exec cat /home/alves/.kbase/.eeds-oipinfo|cut -d : -f 1|tr -d " \t\n\r"}${alignr}${color1}${exec cat /home/alves/.kbase/.eeds-ocipinfo|cut -d : -f 1|tr -d " \t\n\r"}
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Status: ${color1}${alignr}${exec cat /home/alves/.kbase/.eeds-ipinfo|cut -d : -f 2|cut -d [ -f 2|cut -d ] -f 1|tr -d " \t\n\r"}
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Ping:${color1}${alignr}${exec fping -B 1.0 -t 1000 -i 1 -r 0 -e -c 1 -q 8.8.8.8 2>&1 | awk -F'/' '{print $8}'} ms
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Ping:${color1}${alignr}${exec cat /home/alves/.kbase/pingcurrent|xargs} ms
 #${goto 5}${font Liberation Sans Narrow:size=10:bold}${color red}${blink Caution: VPN is off....}
 $endif
 ${color5}${stippled_hr}${font}${voffset -0}

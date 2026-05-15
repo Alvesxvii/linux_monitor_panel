@@ -1,0 +1,13 @@
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}Portas abertas:${color1}   21
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}IP${alignr}DPORT
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color1}77.68.74.121                       ${alignr 1}9001
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color1}172.217.172.42                     ${alignr 1}443
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color1}172.217.172.42                     ${alignr 1}443
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color1}189.90.243.224                     ${alignr 1}443
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color1}157.240.226.60                     ${alignr 1}443
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color1}157.240.226.60                     ${alignr 1}443
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color1}157.240.226.60                     ${alignr 1}443
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color1}172.217.29.74                      ${alignr 1}443
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color1}172.217.162.163                    ${alignr 1}443
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color1}172.217.172.174                    ${alignr 1}443
+${color5}${stippled_hr}${font}${voffset -0}

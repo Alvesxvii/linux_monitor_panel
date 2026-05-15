@@ -46,4 +46,12 @@ ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}USDT/BRL: ${color1}
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}XNO/BRL: ${color1}${exec cat /home/alves/.kbase/xnoprice|xargs} ${execpi 10 cat /home/alves/.kbase/xnochange_display}
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Timeframe: ${color1}24h
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Domínio usado: ${color1}${exec cat /home/alves/.kbase/randomDomain|xargs}
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Última consulta: ${color1}hoje às 21:44h
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Última consulta: ${color1}${exec cat /home/alves/.kbase/lastcryptoquery|xargs}
+
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}AÇÕES DA B3 ${color5}${stippled_hr}${font}${voffset -0}
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}IBOV: ${color1}${exec cat /home/alves/.kbase/ibovprice|xargs} ${execpi 10 cat /home/alves/.kbase/ibovchange_display}
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}MXRF11: ${color1}${exec cat /home/alves/.kbase/mxrf11price|xargs} ${execpi 10 cat /home/alves/.kbase/mxrf11change_display}
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}AREA11: ${color1}${exec cat /home/alves/.kbase/area11price|xargs} ${execpi 10 cat /home/alves/.kbase/area11change_display}
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Timeframe: ${color1}24h
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Domínio usado: ${color1}${exec cat /home/alves/.kbase/b3domain|xargs}
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Última consulta: ${color1}${exec cat /home/alves/.kbase/lastb3query|xargs}

@@ -1,7 +1,7 @@
 # Duplicate of .conkyrc2 for the second monitor.
 gap_x 1058
 gap_y 343
-update_interval 10
+update_interval 1
 minimum_size 220 0
 maximum_width 360
 use_xft yes

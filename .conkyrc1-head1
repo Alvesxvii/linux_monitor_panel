@@ -55,7 +55,9 @@ ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color1}2. ${top_mem name 2
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color1}3. ${top_mem name 3}${alignr}${top_mem mem 3}%
 ${color5}${stippled_hr}${font}${voffset -0}
 ${voffset 10}
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}DISCOS
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color1}1. used:${alignr}${fs_used /home}${color2} /home
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color1}2. used:${alignr}${fs_used /}${color2} /
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}DISCOS ${color1}${fs_used_perc /}%
+${goto 5}${font Liberation Sans Narrow:size=9:bold}${color3}${exec cat /home/alves/.kbase/systemdiskinfo|xargs}
+${goto 5}${font Liberation Sans Narrow:size=9:bold}${color1}${exec cat /home/alves/.kbase/systemdiskfreelabel|xargs}
+${goto 5}${font Liberation Sans Narrow:size=9:bold}${color1}${exec cat /home/alves/.kbase/systemdisksummary|xargs} ${color2}/
+${goto 5}${font Liberation Sans Narrow:size=9:bold}${color1}${exec cat /home/alves/.kbase/homeusedsize|xargs} ${color2}/home
 ${goto 5}${diskiograph 10,220 666666 666666}
