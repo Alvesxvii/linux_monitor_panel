@@ -94,5 +94,8 @@ TEXT
 #${image ~/.kbase/icons/icons8-shield-96.png -p 70,1 -s 35x35}
 #${goto 90}${font Impact:size=10,:normal}${color2}${offset -30} Eagle Eye Digital Solutions 
 #${goto 60}${image ~/.kbase/icons/icons8-shield-96.png -p  50,24 -s 20x20}${font Impact:size=-1174,:normal}${color2}${offset 10} Linux ${color1}Kodachi 
-${goto 5}${font Impact:size=10,:normal}${color2}${color1}Linux ${color2}Ubuntu
-${goto 5}${font Impact:size=10,:normal}${color2}${color2}@alvesxvii
+${goto 5}${font Impact:size=10,:normal}${color1}Linux ${color2}Ubuntu ${exec cat /home/alves/.kbase/linuxversion|xargs}
+${goto 5}${font Impact:size=10,:normal}${color2}Painel de Monitoramento do Linux
+${goto 5}${font Impact:size=10,:normal}${color2}Desenvolvido por: ${color1}João Alves
+${goto 5}${font Impact:size=6,:normal}${color2}https://github.com/Alvesxvii/linux_monitor_panel.git
+${goto 5}${font Impact:size=10,:normal}${color1}@alvesxvii

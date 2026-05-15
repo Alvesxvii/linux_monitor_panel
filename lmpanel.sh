@@ -533,8 +533,85 @@ public_ip() {
 
 coingecko_prices() {
   curl -fsS --max-time 12 \
-    'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,tether&vs_currencies=usd,brl' \
+    'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,tether,nano&vs_currencies=usd,brl&include_24hr_change=true' \
     2>/dev/null || true
+}
+
+format_usd_price() {
+  local value="${1:-}"
+  if [[ -z "$value" || "$value" == "N/A" ]]; then
+    printf 'N/A\n'
+    return 0
+  fi
+
+  python3 - <<'PY' "$value"
+import sys
+from decimal import Decimal, InvalidOperation
+raw = sys.argv[1]
+try:
+    num = Decimal(raw)
+except InvalidOperation:
+    print("N/A")
+    raise SystemExit(0)
+print("$ " + f"{num:,.2f}")
+PY
+}
+
+format_brl_price() {
+  local value="${1:-}"
+  if [[ -z "$value" || "$value" == "N/A" ]]; then
+    printf 'N/A\n'
+    return 0
+  fi
+
+  python3 - <<'PY' "$value"
+import sys
+from decimal import Decimal, InvalidOperation
+raw = sys.argv[1]
+try:
+    num = Decimal(raw)
+except InvalidOperation:
+    print("N/A")
+    raise SystemExit(0)
+formatted = f"{num:,.2f}"
+formatted = formatted.replace(",", "X").replace(".", ",").replace("X", ".")
+print("R$ " + formatted)
+PY
+}
+
+format_percent_change() {
+  local value="${1:-}"
+  if [[ -z "$value" || "$value" == "N/A" ]]; then
+    printf 'N/A\n'
+    return 0
+  fi
+
+  python3 - <<'PY' "$value"
+import sys
+from decimal import Decimal, InvalidOperation
+raw = sys.argv[1]
+try:
+    num = Decimal(raw)
+except InvalidOperation:
+    print("N/A")
+    raise SystemExit(0)
+sign = "+" if num >= 0 else "-"
+num = abs(num)
+formatted = f"{num:.2f}".replace(".", ",")
+print(f"{sign}{formatted}%")
+PY
+}
+
+format_percent_change_colorized() {
+  local value="${1:-}"
+  local formatted color
+  formatted="$(format_percent_change "$value")"
+  case "$formatted" in
+    N/A) printf 'N/A\n' ;;
+    +*) printf '${color1}%s${color2}\n' "$formatted" ;;
+    -*) printf '${color FF3333}%s${color2}\n' "$formatted" ;;
+    *) printf '%s\n' "$formatted" ;;
+  esac
 }
 
 set_wallpaper_custom() {
@@ -600,7 +677,7 @@ apply_wallpaper_policy() {
 }
 
 update_snapshot() {
-  local iface gateway lip pip json btc usdt dns1 dns2 mem_used mem_total openfiles hwid machine_id kernel boot_mode ipv6_state cups_state
+  local iface gateway lip pip json btc_raw usdt_raw xno_raw btc usdt xno btcchg_raw usdtchg_raw xnochg_raw btcchg usdtchg xnochg dns1 dns2 mem_used mem_total openfiles hwid machine_id kernel boot_mode ipv6_state cups_state os_version_label
   local tor_status vpn_status public_state country
 
   iface="$(default_iface)"
@@ -609,9 +686,21 @@ update_snapshot() {
   pip="$(public_ip)"
   json="$(coingecko_prices)"
 
-  read -r btc usdt < <(
+  read -r btc_raw usdt_raw < <(
     python3 -c 'import json,sys; d=json.loads(sys.stdin.read()); print(d.get("bitcoin",{}).get("usd","N/A"), d.get("tether",{}).get("brl","N/A"))' <<<"$json" 2>/dev/null || printf 'N/A N/A'
   )
+  read -r xno_raw < <(
+    python3 -c 'import json,sys; d=json.loads(sys.stdin.read()); print(d.get("nano",{}).get("brl","N/A"))' <<<"$json" 2>/dev/null || printf 'N/A'
+  )
+  read -r btcchg_raw usdtchg_raw xnochg_raw < <(
+    python3 -c 'import json,sys; d=json.loads(sys.stdin.read()); print(d.get("bitcoin",{}).get("usd_24h_change","N/A"), d.get("tether",{}).get("brl_24h_change","N/A"), d.get("nano",{}).get("brl_24h_change","N/A"))' <<<"$json" 2>/dev/null || printf 'N/A N/A N/A'
+  )
+  btc="$(format_usd_price "$btc_raw")"
+  usdt="$(format_brl_price "$usdt_raw")"
+  xno="$(format_brl_price "$xno_raw")"
+  btcchg="$(format_percent_change "$btcchg_raw")"
+  usdtchg="$(format_percent_change "$usdtchg_raw")"
+  xnochg="$(format_percent_change "$xnochg_raw")"
 
   dns1="$(awk '/^nameserver/ {print $2; exit}' /etc/resolv.conf 2>/dev/null || true)"
   dns2="$(awk '/^nameserver/ {print $2; exit 1}' /etc/resolv.conf 2>/dev/null || true)"
@@ -621,6 +710,7 @@ update_snapshot() {
   machine_id="$(cat /etc/machine-id 2>/dev/null || hostname)"
   kernel="$(uname -r)"
   hwid="$(printf '%s' "${machine_id}:${HOSTNAME:-$(hostname)}:${kernel}" | sha256sum | awk '{print substr($1,1,21)}')"
+  os_version_label="$(. /etc/os-release 2>/dev/null; printf '%s' "${VERSION:-24.04.4 LTS}" | sed 's/ ([^)]*)$//')"
 
   boot_mode="Installed"
   ipv6_state="Disabled"
@@ -666,6 +756,14 @@ update_snapshot() {
   write_file "$BASE/randomDomain" "api.coingecko.com"
   write_file "$BASE/btcprice" "${btc:-N/A}"
   write_file "$BASE/usdtprice" "${usdt:-N/A}"
+  write_file "$BASE/xnoprice" "${xno:-N/A}"
+  write_file "$BASE/btcchange" "${btcchg:-N/A}"
+  write_file "$BASE/usdtchange" "${usdtchg:-N/A}"
+  write_file "$BASE/xnochange" "${xnochg:-N/A}"
+  write_file "$BASE/btcchange_display" "$(format_percent_change_colorized "${btcchg_raw:-N/A}")"
+  write_file "$BASE/usdtchange_display" "$(format_percent_change_colorized "${usdtchg_raw:-N/A}")"
+  write_file "$BASE/xnochange_display" "$(format_percent_change_colorized "${xnochg_raw:-N/A}")"
+  write_file "$BASE/linuxversion" "$os_version_label"
   write_file "$BASE/btcdonation" "--"
   write_file "$BASE/BandSatus" "Custom overlay active"
   write_file "$BASE/version" "custom"
