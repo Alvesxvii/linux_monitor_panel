@@ -240,7 +240,7 @@ monitor_specs() {
         if (n >= 4) {
           print $1, parts[1], parts[2], parts[3], parts[4]
         }
-      }'
+      }' | sort -k4,4n -k5,5n
   fi
 }
 
