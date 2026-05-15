@@ -281,7 +281,14 @@ render_saved_layout() {
   local window_type="$4"
   local window_hints="$5"
   local tmpl_sig="$6"
-  local layout_sig rel x y head source
+  local layout_sig rel x y head source active_count
+  local -a specs=()
+
+  mapfile -t specs < <(monitor_specs)
+  active_count="${#specs[@]}"
+  if [[ "$active_count" -lt 1 ]]; then
+    active_count=1
+  fi
 
   layout_sig="$(layout_signature "$geom_file" "$tmpl_sig" "${window_type}:${window_hints}")"
   if [[ -f "$sig_file" && "$(cat "$sig_file" 2>/dev/null)" == "$layout_sig" && "${#CONKY_RENDERED_CONFIGS[@]}" -gt 0 ]]; then
@@ -299,6 +306,9 @@ render_saved_layout() {
 
   while IFS=$'\t' read -r rel x y head source; do
     [[ -n "${rel:-}" ]] || continue
+    if [[ "${head:-0}" -ge "$active_count" ]]; then
+      continue
+    fi
     mkdir -p "$CONKY_LAYOUT_DIR/$(dirname "$rel")"
     render_conky_config "$source" "$CONKY_LAYOUT_DIR/$rel" "$x" "$y" "$head" top_left "$window_type" "$window_hints"
     CONKY_RENDERED_CONFIGS+=("$CONKY_LAYOUT_DIR/$rel")
