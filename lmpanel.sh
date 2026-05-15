@@ -50,6 +50,44 @@ default_gateway() {
   ip route show default 2>/dev/null | awk 'NR==1 {print $3; exit}'
 }
 
+current_ping_ms() {
+  local target="${1:-8.8.8.8}"
+  local output value
+
+  output="$(ping -n -c 1 -W 2 "$target" 2>/dev/null)" || {
+    printf 'N/A\n'
+    return 0
+  }
+
+  value="$(
+    awk -F'/' '
+      /^rtt|^round-trip/ {
+        if ($5 ~ /^[0-9.]+$/) {
+          printf "%.1f\n", $5
+          exit
+        }
+      }
+      /time=/ {
+        for (i = 1; i <= NF; i++) {
+          if ($i ~ /^time=/) {
+            sub(/^time=/, "", $i)
+            if ($i ~ /^[0-9.]+$/) {
+              printf "%.1f\n", $i
+              exit
+            }
+          }
+        }
+      }
+    ' <<<"$output"
+  )"
+
+  if [[ -z "${value:-}" ]]; then
+    printf 'N/A\n'
+  else
+    printf '%s\n' "$value"
+  fi
+}
+
 connected_monitor_count() {
   if command -v xrandr >/dev/null 2>&1 && [[ -n "${DISPLAY:-}" ]]; then
     xrandr --query 2>/dev/null | awk '/ connected( primary)? / {count++} END {print count+0}'
