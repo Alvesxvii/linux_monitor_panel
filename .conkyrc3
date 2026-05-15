@@ -19,7 +19,7 @@
 # Specific
 gap_x 10
 gap_y 30
-update_interval 5
+update_interval 1
 minimum_size 170 0
 maximum_width 360
 
@@ -98,10 +98,9 @@ ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Área de trabalho u
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Resolução da tela:${color1}${alignr}${exec xdpyinfo | sed -n 's/.*dim.* \([0-9]*x[0-9]*\) .*/\1/pg' | sed ':a;N;$!ba;s/\n/ /g'}
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Kernel:${alignr}${color1}${kernel}
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}HWID: ${color1}${alignr}${exec cat /home/alves/.kbase/HWID|cut -c 1-21 |xargs}
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Desenvolvedor:${alignr}${color1}Warith AL Maawali
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Hora: ${color1}${time %H-%M}${alignr}${color3}Data: ${color1}${time %d-%m-%Y}
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Hora: ${color1}${time %H:%M:%S}${alignr}${color3}Data: ${color1}${time %d/%m/%Y}
 
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}TRAFFIC ${color5}${stippled_hr}${font}${voffset -0}
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}TRÁFEGO ${color5}${stippled_hr}${font}${voffset -0}
 ${if_existing /proc/net/route wlan0}
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}  Interface:${color1}${alignr}wlan0
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}  Subida:${color1}${alignr}${upspeed wlan0}
@@ -191,7 +190,7 @@ ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}  Download:${color1
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}  IP:${color1} ${alignr}${addr eth1}
 ${color5}${stippled_hr}${font}${voffset -0}
 ${endif}
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}Open ports:${color1}   ${tcp_portmon 1 65535 count}
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}Portas abertas:${color1}   ${tcp_portmon 1 65535 count}
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}IP${alignr}DPORT
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color1}${tcp_portmon 1 65535 rip  0}${alignr 1}${tcp_portmon 1 65535 rport  0}
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color1}${tcp_portmon 1 65535 rip  1}${alignr 1}${tcp_portmon 1 65535 rport  1}

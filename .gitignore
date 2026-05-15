@@ -29,6 +29,7 @@ autologinstatus
 boottype
 btcdonation
 btcprice
+usdtprice
 cupsstatus
 forcefonts
 forcetempdns
@@ -55,7 +56,6 @@ version
 vpnattributes
 vpntype
 vpnufwstatus
-xmrprice
 
 # DNS cache/state written by the script
 dns/autodnscrypt

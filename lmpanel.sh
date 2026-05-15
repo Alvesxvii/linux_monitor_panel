@@ -72,6 +72,8 @@ template_signature() {
     "$BASE/.conkyrc1" \
     "$BASE/.conkyrc2" \
     "$BASE/.conkyrc3" \
+    "$BASE/.conkyrc4" \
+    "$BASE/.conkyrc4-head1" \
     "$BASE/conky_orange.lua" \
     2>/dev/null | sha256sum | awk '{print $1}'
 }
@@ -306,6 +308,31 @@ render_saved_layout() {
   log "rendered $label conky layout."
 }
 
+append_crypto_layout() {
+  local window_type="$1"
+  local window_hints="$2"
+  local specs idx name width height origin_x origin_y monitor_dir
+
+  if [[ "${CONKY_RENDERED_CONFIGS[*]}" == *".conkyrc4"* ]]; then
+    return 0
+  fi
+
+  mapfile -t specs < <(monitor_specs)
+  for idx in "${!specs[@]}"; do
+    read -r name width height origin_x origin_y <<<"${specs[$idx]}"
+    monitor_dir="$CONKY_LAYOUT_DIR/head${idx}"
+    mkdir -p "$monitor_dir"
+
+    if [[ "$idx" -eq 0 ]]; then
+      render_conky_config "$BASE/.conkyrc4" "$monitor_dir/.conkyrc4" "$(calc_pct "$width" 0.555)" "$(calc_pct "$height" 0.535)" 0 top_left "$window_type" "$window_hints"
+    else
+      render_conky_config "$BASE/.conkyrc4-head1" "$monitor_dir/.conkyrc4" "$(calc_pct "$width" 0.547)" "$(calc_pct "$height" 0.535)" "$idx" top_left "$window_type" "$window_hints"
+    fi
+
+    CONKY_RENDERED_CONFIGS+=("$monitor_dir/.conkyrc4")
+  done
+}
+
 capture_current_layouts() {
   local output_file="$1"
   local sig_file="$2"
@@ -347,10 +374,12 @@ PY
     "head0/.conkyrc1:$BASE/.conkyrc1:0"
     "head0/.conkyrc2:$BASE/.conkyrc2:0"
     "head0/.conkyrc3:$BASE/.conkyrc3:0"
+    "head0/.conkyrc4:$BASE/.conkyrc4:0"
     "head1/.conkyrc0:$BASE/.conkyrc0:1"
     "head1/.conkyrc1:$BASE/.conkyrc1:1"
     "head1/.conkyrc2:$BASE/.conkyrc2:1"
     "head1/.conkyrc3:$BASE/.conkyrc3:1"
+    "head1/.conkyrc4:$BASE/.conkyrc4-head1:1"
   )
 
   local entry dest title
@@ -393,6 +422,7 @@ build_conky_layouts() {
         edit_sig="$(layout_sig_file_for_target "$edit_target")"
         if [[ -s "$edit_geom" ]]; then
           render_saved_layout "$edit_geom" "$edit_sig" "$edit_target" "$window_type" "$window_hints" "$tmpl_sig"
+          append_crypto_layout "$window_type" "$window_hints"
           return 0
         fi
         ;;
@@ -400,21 +430,25 @@ build_conky_layouts() {
 
     if [[ -s "$MANUAL_GEOM_FILE" ]]; then
       render_saved_layout "$MANUAL_GEOM_FILE" "$MANUAL_LAYOUT_SIG_FILE" "manual-edit" "$window_type" "$window_hints" "$tmpl_sig"
+      append_crypto_layout "$window_type" "$window_hints"
       return 0
     fi
     if [[ -s "$AUTO_GEOM_FILE" ]]; then
       render_saved_layout "$AUTO_GEOM_FILE" "$AUTO_LAYOUT_SIG_FILE" "auto-edit" "$window_type" "$window_hints" "$tmpl_sig"
+      append_crypto_layout "$window_type" "$window_hints"
       return 0
     fi
   fi
 
   if [[ "$layout_mode" == "manual" && -s "$MANUAL_GEOM_FILE" ]]; then
     render_saved_layout "$MANUAL_GEOM_FILE" "$MANUAL_LAYOUT_SIG_FILE" "manual" "desktop" "undecorated,below,sticky,skip_taskbar,skip_pager" "$tmpl_sig"
+    append_crypto_layout "desktop" "undecorated,below,sticky,skip_taskbar,skip_pager"
     return 0
   fi
 
   if [[ "$layout_mode" == "auto" && -s "$AUTO_GEOM_FILE" ]]; then
     render_saved_layout "$AUTO_GEOM_FILE" "$AUTO_LAYOUT_SIG_FILE" "auto" "desktop" "undecorated,below,sticky,skip_taskbar,skip_pager" "$tmpl_sig"
+    append_crypto_layout "desktop" "undecorated,below,sticky,skip_taskbar,skip_pager"
     return 0
   fi
 
@@ -425,10 +459,12 @@ build_conky_layouts() {
     profile_sig="$(profile_sig_file "$profile_num")"
     if [[ -s "$profile_geom" ]]; then
       render_saved_layout "$profile_geom" "$profile_sig" "$layout_mode" "desktop" "undecorated,below,sticky,skip_taskbar,skip_pager" "$tmpl_sig"
+      append_crypto_layout "desktop" "undecorated,below,sticky,skip_taskbar,skip_pager"
       return 0
     fi
     if [[ -s "$AUTO_GEOM_FILE" ]]; then
       render_saved_layout "$AUTO_GEOM_FILE" "$AUTO_LAYOUT_SIG_FILE" "auto" "desktop" "undecorated,below,sticky,skip_taskbar,skip_pager" "$tmpl_sig"
+      append_crypto_layout "desktop" "undecorated,below,sticky,skip_taskbar,skip_pager"
       return 0
     fi
   fi
@@ -455,13 +491,15 @@ build_conky_layouts() {
       render_conky_config "$BASE/.conkyrc1" "$monitor_dir/.conkyrc1" "$(calc_pct "$width" 0.482)" "$(calc_pct "$height" 0.446)" 0 top_left "$window_type" "$window_hints"
       render_conky_config "$BASE/.conkyrc2" "$monitor_dir/.conkyrc2" "$(calc_pct "$width" 0.555)" "$(calc_pct "$height" 0.075)" 0 top_left "$window_type" "$window_hints"
       render_conky_config "$BASE/.conkyrc3" "$monitor_dir/.conkyrc3" "$(calc_pct "$width" 0.735)" "$(calc_pct "$height" 0.075)" 0 top_left "$window_type" "$window_hints"
-      CONKY_RENDERED_CONFIGS+=("$monitor_dir/.conkyrc0" "$monitor_dir/.conkyrc1" "$monitor_dir/.conkyrc2" "$monitor_dir/.conkyrc3")
+      render_conky_config "$BASE/.conkyrc4" "$monitor_dir/.conkyrc4" "$(calc_pct "$width" 0.555)" "$(calc_pct "$height" 0.535)" 0 top_left "$window_type" "$window_hints"
+      CONKY_RENDERED_CONFIGS+=("$monitor_dir/.conkyrc0" "$monitor_dir/.conkyrc1" "$monitor_dir/.conkyrc2" "$monitor_dir/.conkyrc3" "$monitor_dir/.conkyrc4")
     else
       render_conky_config "$BASE/.conkyrc0" "$monitor_dir/.conkyrc0" "$(calc_pct "$width" 0.547)" "$(calc_pct "$height" 0.055)" "$idx" top_left "$window_type" "$window_hints"
       render_conky_config "$BASE/.conkyrc1" "$monitor_dir/.conkyrc1" "$(calc_pct "$width" 0.682)" "$(calc_pct "$height" 0.055)" "$idx" top_left "$window_type" "$window_hints"
       render_conky_config "$BASE/.conkyrc2" "$monitor_dir/.conkyrc2" "$(calc_pct "$width" 0.547)" "$(calc_pct "$height" 0.31)" "$idx" top_left "$window_type" "$window_hints"
       render_conky_config "$BASE/.conkyrc3" "$monitor_dir/.conkyrc3" "$(calc_pct "$width" 0.82)" "$(calc_pct "$height" 0.055)" "$idx" top_left "$window_type" "$window_hints"
-      CONKY_RENDERED_CONFIGS+=("$monitor_dir/.conkyrc0" "$monitor_dir/.conkyrc1" "$monitor_dir/.conkyrc2" "$monitor_dir/.conkyrc3")
+      render_conky_config "$BASE/.conkyrc4-head1" "$monitor_dir/.conkyrc4" "$(calc_pct "$width" 0.547)" "$(calc_pct "$height" 0.535)" "$idx" top_left "$window_type" "$window_hints"
+      CONKY_RENDERED_CONFIGS+=("$monitor_dir/.conkyrc0" "$monitor_dir/.conkyrc1" "$monitor_dir/.conkyrc2" "$monitor_dir/.conkyrc3" "$monitor_dir/.conkyrc4")
     fi
   done
 
@@ -495,7 +533,7 @@ public_ip() {
 
 coingecko_prices() {
   curl -fsS --max-time 12 \
-    'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,monero&vs_currencies=usd' \
+    'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,tether&vs_currencies=usd,brl' \
     2>/dev/null || true
 }
 
@@ -562,7 +600,7 @@ apply_wallpaper_policy() {
 }
 
 update_snapshot() {
-  local iface gateway lip pip json btc xmr dns1 dns2 mem_used mem_total openfiles hwid machine_id kernel boot_mode ipv6_state cups_state
+  local iface gateway lip pip json btc usdt dns1 dns2 mem_used mem_total openfiles hwid machine_id kernel boot_mode ipv6_state cups_state
   local tor_status vpn_status public_state country
 
   iface="$(default_iface)"
@@ -571,8 +609,9 @@ update_snapshot() {
   pip="$(public_ip)"
   json="$(coingecko_prices)"
 
-  btc="$(printf '%s' "$json" | sed -n 's/.*"bitcoin":{"usd":\([0-9.]*\)}.*/\1/p')"
-  xmr="$(printf '%s' "$json" | sed -n 's/.*"monero":{"usd":\([0-9.]*\)}.*/\1/p')"
+  read -r btc usdt < <(
+    python3 -c 'import json,sys; d=json.loads(sys.stdin.read()); print(d.get("bitcoin",{}).get("usd","N/A"), d.get("tether",{}).get("brl","N/A"))' <<<"$json" 2>/dev/null || printf 'N/A N/A'
+  )
 
   dns1="$(awk '/^nameserver/ {print $2; exit}' /etc/resolv.conf 2>/dev/null || true)"
   dns2="$(awk '/^nameserver/ {print $2; exit 1}' /etc/resolv.conf 2>/dev/null || true)"
@@ -626,7 +665,7 @@ update_snapshot() {
   write_file "$BASE/iptypeletter" "${public_state}"
   write_file "$BASE/randomDomain" "api.coingecko.com"
   write_file "$BASE/btcprice" "${btc:-N/A}"
-  write_file "$BASE/xmrprice" "${xmr:-N/A}"
+  write_file "$BASE/usdtprice" "${usdt:-N/A}"
   write_file "$BASE/btcdonation" "--"
   write_file "$BASE/BandSatus" "Custom overlay active"
   write_file "$BASE/version" "custom"
@@ -690,6 +729,7 @@ daemon_loop() {
   local last_sig current_sig tick
   last_sig=""
   tick=0
+  update_snapshot || log "snapshot refresh failed at startup; keeping previous state."
   while true; do
     current_sig="$(monitor_signature 2>/dev/null || printf 'no-xrandr')"
     if [[ "$current_sig" != "$last_sig" ]]; then

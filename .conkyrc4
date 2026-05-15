@@ -1,4 +1,4 @@
-# Crypto quotes card for the second monitor.
+# Crypto quotes card for the first monitor.
 gap_x 1058
 gap_y 580
 update_interval 10
@@ -35,7 +35,7 @@ border_margin 5
 border_width 3
 default_color 05FBE8
 own_window_colour black
-xinerama_head 1
+xinerama_head 0
 alignment top_left
 override_utf8_locale yes
 use_spacer none

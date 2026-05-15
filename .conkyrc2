@@ -82,12 +82,10 @@ use_spacer none
 TEXT
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}PRIVACIDADE E SEGURANÇA ${color5}${stippled_hr}${font}${voffset -0}
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}Internet:${alignr}${color1}${exec cat /home/alves/.kbase/netCurrentStatus|xargs}
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}BTC: ${color1}${exec cat /home/alves/.kbase/btcprice|xargs}${alignr}${color3}XMR: ${color1}${exec cat /home/alves/.kbase/xmrprice|xargs}
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}Interface de rede:${alignr}${color1}${exec cat /home/alves/.kbase/intfused |xargs}
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Gateway: ${alignr}${color1}${if_gw}${gw_ip}${else}-${endif}
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}MAC:${color1}${alignr}${exec cat /sys/class/net/$(find /sys/class/net ! -type d | xargs --max-args=1 realpath  | awk -F\/ '/pci/{print $NF}'|head -n1)/address}
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Origem IP:${color1}${alignr}${exec cat /home/alves/.kbase/iptypeletter |xargs}
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Domínio usado:${color1}${alignr}${exec cat /home/alves/.kbase/randomDomain |xargs}
 ${color5}${stippled_hr}${font}${voffset -0}
 ${if_running openvpn}
 #${if_running openvpn}${image /home/alves/.kbase/.conky/images/vpnon.png -p 50,70 -s 16x16}
@@ -145,8 +143,7 @@ ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Forced DNS:${font L
 #${image /home/alves/.kbase/.conky/images/dnsoff.png -p 40,340 -s 16x16}
 $endif
 ${color5}${stippled_hr}${font}${voffset -0}
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}Status do Kodachi:${alignr}${color1}${font Liberation Sans Narrow:size=10:bold}${exec cat /home/alves/.kbase/BandSatus |xargs} 
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}Doações BTC:${alignr}${color1}${exec cat /home/alves/.kbase/btcdonation |xargs} 
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}Status do lmpanel:${alignr}${color1}${font Liberation Sans Narrow:size=10:bold}${exec cat /home/alves/.kbase/BandSatus |xargs} 
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Versão: ${color1}${exec cat /home/alves/.kbase/Globalconfig|grep "Kodachi_version"|cut -d = -f 2|cut -d ';' -f 1|xargs}${alignr}${color3}Última: ${color1}${exec cat /home/alves/.kbase/version|xargs|tr -d " \t\n\r"}${color red}${exec cat /home/alves/.kbase/newversionalert|xargs|tr -d " \t\n\r"}
 #${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}IP updates in:${color1}${alignr}${exec cat /home/alves/.kbase/.countfile|wc -l|cut -d . -f 1}${color2}/25
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Modo de boot do SO: ${color1}${exec cat /home/alves/.kbase/boottype}${alignr}${color3}SO live: ${color1}${exec cat /home/alves/.kbase/persistent}

@@ -42,9 +42,7 @@ use_spacer none
 TEXT
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}PRIVACIDADE E SEGURANÇA ${color5}${stippled_hr}${font}${voffset -0}
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}Internet:${alignr}${color1}${exec cat /home/alves/.kbase/netCurrentStatus|xargs}
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}BTC: ${color1}${exec cat /home/alves/.kbase/btcprice|xargs}${alignr}${color3}XMR: ${color1}${exec cat /home/alves/.kbase/xmrprice|xargs}
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}Interface de rede:${alignr}${color1}${exec cat /home/alves/.kbase/intfused |xargs}
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Gateway: ${alignr}${color1}${if_gw}${gw_ip}${else}-${endif}
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}MAC:${color1}${alignr}${exec cat /sys/class/net/$(find /sys/class/net ! -type d | xargs --max-args=1 realpath  | awk -F\/ '/pci/{print $NF}'|head -n1)/address}
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Origem IP:${color1}${alignr}${exec cat /home/alves/.kbase/iptypeletter |xargs}
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Domínio usado:${color1}${alignr}${exec cat /home/alves/.kbase/randomDomain |xargs}

@@ -13,7 +13,7 @@ Generated at runtime and intentionally ignored:
 - `conky-runtime/`
 - `lmpanel.log`
 - `monitor-signature`
-- status files such as `btcprice`, `xmrprice`, `netCurrentStatus`, and the `.eeds-*` files
+- status files such as `btcprice`, `usdtprice`, `netCurrentStatus`, and the `.eeds-*` files
 
 Quick control:
 - `systemctl --user restart lmpanel.service`
