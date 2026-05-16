@@ -13,7 +13,13 @@
 -- http://www.om77.net
 -- script starts here: 
 
-require 'cairo'
+local cairo_ok = pcall(require, 'cairo')
+if not cairo_ok then
+    function conky_main()
+        return
+    end
+    return
+end
 
 --------------------------------------------------------------------------------
 --                                                                    clock DATA
@@ -422,4 +428,3 @@ function conky_main()
     cairo_surface_destroy(cs)
     cairo_destroy(display)
 end
-

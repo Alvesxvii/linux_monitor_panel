@@ -112,8 +112,8 @@ ${color5}${stippled_hr}${font}${voffset -0}
 ${if_running tor}
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}Tor${color1}${alignr}${color3}Age: ${color1}${exec ps -eo pid,command,etime|grep 'tor'|grep 'bin'|cut -d r -f 4|xargs}
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}${color1}${exec cat /home/alves/.kbase/.eeds-tipinfo|cut -d : -f 1|xargs}${alignr}${color1}${exec cat /home/alves/.kbase/.eeds-tipinfo|cut -d : -f 2|xargs }
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Tor with VPN only: ${color1}${exec cat /home/alves/.kbase/toronvpn|cut -d : -f 2|xargs }${alignr}${color3}Torified OS: ${color1}${alignr}${exec cat /home/alves/.kbase/torifysystemstatus|cut -d : -f 2|xargs }
-${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Excluded eyes: ${alignr}${color1}${exec cat /home/alves/.kbase/torblock14|cut -d : -f 2|xargs }
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Tor ativo: ${color1}${exec cat /home/alves/.kbase/toronvpn|cut -d : -f 2|xargs }${alignr}${color3}Sistema torificado: ${color1}${alignr}${exec cat /home/alves/.kbase/torifysystemstatus|cut -d : -f 2|xargs }
+${goto 5}${font Liberation Sans Narrow:size=10:bold}${color3}Exclusoes: ${alignr}${color1}${exec cat /home/alves/.kbase/torblock14|cut -d : -f 2|xargs }
 $else
 #${image /home/alves/.conky/images/toroff.png -p 40,235 -s 40x40}
 ${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}Tor${color1}${alignr}-

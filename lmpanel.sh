@@ -88,6 +88,111 @@ current_ping_ms() {
   fi
 }
 
+vpn_active() {
+  if systemctl is-active --quiet openvpn 2>/dev/null; then
+    return 0
+  fi
+
+  pgrep -x openvpn >/dev/null 2>&1
+}
+
+tor_any_active() {
+  if pgrep -x tor >/dev/null 2>&1; then
+    return 0
+  fi
+
+  ps -eo args= 2>/dev/null | awk '
+    /\/TorBrowser\/Tor\/tor( |$)/ {
+      found = 1
+    }
+    END {
+      exit(found ? 0 : 1)
+    }
+  '
+}
+
+tor_system_torified() {
+  if ss -lnt 2>/dev/null | awk '
+    $4 ~ /:9040$/ { found = 1 }
+    $4 ~ /:9053$/ { found = 1 }
+    END {
+      exit(found ? 0 : 1)
+    }
+  '; then
+    return 0
+  fi
+
+  if command -v iptables-save >/dev/null 2>&1; then
+    if iptables-save -t nat 2>/dev/null | awk '
+      /REDIRECT/ && /(9040|9053)/ { found = 1 }
+      END {
+        exit(found ? 0 : 1)
+      }
+    '; then
+      return 0
+    fi
+  fi
+
+  if command -v nft >/dev/null 2>&1; then
+    if nft list ruleset 2>/dev/null | awk '
+      /redirect.*(9040|9053)|to :?(9040|9053)/ { found = 1 }
+      END {
+        exit(found ? 0 : 1)
+      }
+    '; then
+      return 0
+    fi
+  fi
+
+  return 1
+}
+
+tor_exclusion_count() {
+  local count=0
+
+  if ss -lnt 2>/dev/null | awk '
+    $4 ~ /:9040$/ { found = 1 }
+    END {
+      exit(found ? 0 : 1)
+    }
+  '; then
+    count=$((count + 1))
+  fi
+
+  if ss -lnt 2>/dev/null | awk '
+    $4 ~ /:9053$/ { found = 1 }
+    END {
+      exit(found ? 0 : 1)
+    }
+  '; then
+    count=$((count + 1))
+  fi
+
+  if command -v iptables-save >/dev/null 2>&1; then
+    if iptables-save -t nat 2>/dev/null | awk '
+      /REDIRECT/ && /(9040|9053)/ { found = 1 }
+      END {
+        exit(found ? 0 : 1)
+      }
+    '; then
+      count=$((count + 1))
+    fi
+  fi
+
+  if command -v nft >/dev/null 2>&1; then
+    if nft list ruleset 2>/dev/null | awk '
+      /redirect.*(9040|9053)|to :?(9040|9053)/ { found = 1 }
+      END {
+        exit(found ? 0 : 1)
+      }
+    '; then
+      count=$((count + 1))
+    fi
+  fi
+
+  printf '%s\n' "$count"
+}
+
 connected_monitor_count() {
   if command -v xrandr >/dev/null 2>&1 && [[ -n "${DISPLAY:-}" ]]; then
     xrandr --query 2>/dev/null | awk '/ connected( primary)? / {count++} END {print count+0}'
@@ -819,6 +924,41 @@ update_traffic_average_snapshot() {
   write_file "$BASE/trafficavgup_display" "$(format_bytes_per_second "$up_bps")"
 }
 
+update_tcp_ports_snapshot() {
+  local tmp count peer host port
+  local -a peers
+  tmp="$(mktemp)"
+
+  if ! command -v ss >/dev/null 2>&1; then
+    write_file "$BASE/tcpports_display" ""
+    return 0
+  fi
+
+  mapfile -t peers < <(
+    ss -Htn state established 2>/dev/null | awk '
+      NF >= 5 {
+        peer = $5
+        gsub(/^\[/, "", peer)
+        gsub(/\]$/, "", peer)
+        print peer
+      }
+    ' | head -n 15
+  )
+
+  count="${#peers[@]}"
+  {
+    printf '${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}Portas abertas:${color1}   %s\n' "$count"
+    printf '${goto 5}${font Liberation Sans Narrow:size=10:bold}${color2}IP${alignr}DPORT\n'
+    for peer in "${peers[@]}"; do
+      host="${peer%:*}"
+      port="${peer##*:}"
+      printf '${goto 5}${font Liberation Sans Narrow:size=10:bold}${color1}%-33s${alignr 1}%s\n' "$host" "$port"
+    done
+  } >"$tmp"
+
+  mv "$tmp" "$BASE/tcpports_display"
+}
+
 update_ping_snapshot() {
   local ping_target
   if pgrep -x openvpn >/dev/null 2>&1 || pgrep -f 'openvpn --daemon --config' >/dev/null 2>&1; then
@@ -895,7 +1035,7 @@ update_snapshot() {
   local iface gateway lip pip json b3json btc_raw usdt_raw xno_raw btc usdt xno btcchg_raw usdtchg_raw xnochg btcchg usdtchg xnochg
   local ibov_raw mxrf11_raw area11_raw ibov mxrf11 area11 ibovchg_raw mxrf11chg_raw area11chg_raw ibovchg mxrf11chg area11chg
   local dns1 dns2 mem_used mem_total openfiles hwid machine_id kernel boot_mode ipv6_state cups_state os_version_label
-  local tor_status vpn_status public_state country
+  local tor_status vpn_status public_state country tor_vpn_only tor_system_status tor_block_count
   local root_source root_parent root_model root_size_bytes root_size_label
   local root_total_bytes root_used_bytes root_avail_bytes
   local root_total_display root_used_display root_avail_display
@@ -1071,9 +1211,22 @@ print(get("BMFBOVESPA:IBOV", 0), get("BMFBOVESPA:IBOV", 1), get("BMFBOVESPA:MXRF
   write_file "$BASE/vpnattributes" $'port=0\nprotocolu=none\ntheProfile=none'
   write_file "$BASE/tvpnbandwidth" "0"
   write_file "$BASE/forcetempdns" "${dns1:-1.1.1.1}"
-  write_file "$BASE/toronvpn" "No"
-  write_file "$BASE/torifysystemstatus" "No"
-  write_file "$BASE/torblock14" "0"
+  tor_vpn_only="Nao"
+  tor_system_status="Nao"
+  tor_block_count="0"
+  if tor_any_active; then
+    tor_vpn_only="Ativo"
+    if vpn_active; then
+      tor_vpn_only="Ativo + VPN"
+    fi
+  fi
+  if tor_system_torified; then
+    tor_system_status="Sim"
+  fi
+  tor_block_count="$(tor_exclusion_count)"
+  write_file "$BASE/toronvpn" "$tor_vpn_only"
+  write_file "$BASE/torifysystemstatus" "$tor_system_status"
+  write_file "$BASE/torblock14" "$tor_block_count"
   write_file "$BASE/.eeds-oipinfo" "${pip:- -}"
   write_file "$BASE/.eeds-ocipinfo" "ISP"
   write_file "$BASE/HWID" "$hwid"
@@ -1101,6 +1254,12 @@ refresh_conky_layouts() {
   local current_tmpl_sig
   current_tmpl_sig="$(template_signature)"
   if [[ -f "$MONITOR_SIG_FILE" && -f "$TEMPLATE_SIG_FILE" && "$(cat "$MONITOR_SIG_FILE" 2>/dev/null)" == "$current_sig" && "$(cat "$TEMPLATE_SIG_FILE" 2>/dev/null)" == "$current_tmpl_sig" && "${#CONKY_RENDERED_CONFIGS[@]}" -gt 0 ]]; then
+    if pgrep -f "$CONKY_LAYOUT_DIR" >/dev/null 2>&1 || pgrep -f "$BASE/.conkyrc[0-4]" >/dev/null 2>&1; then
+      return 0
+    fi
+
+    build_conky_layouts
+    start_rendered_conky
     return 0
   fi
 
